@@ -1,0 +1,498 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+    <data name="AntialiasOff" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="AntialiasSamples" xml:space="preserve">
+    <value>MSAA {0}x</value>
+  </data>
+  <data name="CaptionBack" xml:space="preserve">
+    <value>Back (Alt+Left)</value>
+  </data>
+  <data name="CaptionClose" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="CaptionColorMode" xml:space="preserve">
+    <value>Color files by type or by last change (C)</value>
+  </data>
+  <data name="CaptionElevate" xml:space="preserve">
+    <value>Restart as administrator (F2), drives are then read from their master file table</value>
+  </data>
+  <data name="CaptionElevated" xml:space="preserve">
+    <value>Running as administrator, drives are read from their master file table</value>
+  </data>
+  <data name="CaptionExitFullScreen" xml:space="preserve">
+    <value>Exit full screen (Alt+Enter)</value>
+  </data>
+  <data name="CaptionForward" xml:space="preserve">
+    <value>Forward (Alt+Right)</value>
+  </data>
+  <data name="CaptionFrameAll" xml:space="preserve">
+    <value>Show the whole map (Home)</value>
+  </data>
+  <data name="CaptionHideHidden" xml:space="preserve">
+    <value>Hide hidden items (H)</value>
+  </data>
+  <data name="CaptionMaximize" xml:space="preserve">
+    <value>Maximize</value>
+  </data>
+  <data name="CaptionMinimize" xml:space="preserve">
+    <value>Minimize</value>
+  </data>
+  <data name="CaptionRestore" xml:space="preserve">
+    <value>Restore down</value>
+  </data>
+  <data name="CaptionReveal" xml:space="preserve">
+    <value>Show in File Explorer</value>
+  </data>
+  <data name="CaptionSettings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="CaptionShowHidden" xml:space="preserve">
+    <value>Show hidden items (H)</value>
+  </data>
+  <data name="CaptionUp" xml:space="preserve">
+    <value>Up one level (Backspace)</value>
+  </data>
+  <data name="ColorModeAge" xml:space="preserve">
+    <value>By last change</value>
+  </data>
+  <data name="ColorModeType" xml:space="preserve">
+    <value>By type</value>
+  </data>
+  <data name="DescriptorHeapFull" xml:space="preserve">
+    <value>The {0} descriptor heap is full, it holds {1} descriptors.</value>
+  </data>
+  <data name="EffectCartoon" xml:space="preserve">
+    <value>Cartoon</value>
+  </data>
+  <data name="EffectNeon" xml:space="preserve">
+    <value>Neon</value>
+  </data>
+  <data name="EffectNewYork" xml:space="preserve">
+    <value>New York 2027</value>
+  </data>
+  <data name="EffectNone" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="EffectPixelArt" xml:space="preserve">
+    <value>Pixel art</value>
+  </data>
+  <data name="ElevationPercent" xml:space="preserve">
+    <value>{0:0} %</value>
+  </data>
+  <data name="GroundGrid" xml:space="preserve">
+    <value>Grid</value>
+  </data>
+  <data name="GroundNone" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="GroundPlain" xml:space="preserve">
+    <value>Plain</value>
+  </data>
+  <data name="HudAdapter" xml:space="preserve">
+    <value>{0}, shader model {1}, ray tracing {2}, mesh shaders {3}</value>
+  </data>
+  <data name="HudBreadcrumbSeparator" xml:space="preserve">
+    <value> › </value>
+  </data>
+  <data name="HudFrame" xml:space="preserve">
+    <value>{0:0} fps, CPU {1:0.00} ms per frame</value>
+  </data>
+  <data name="HudGpu" xml:space="preserve">
+    <value>GPU {0}</value>
+  </data>
+  <data name="HudInstances" xml:space="preserve">
+    <value>{0:N0} instances, {1:N0} drawn, {2:N0} labels</value>
+  </data>
+  <data name="HudItems" xml:space="preserve">
+    <value>{0:N0} items, {1}</value>
+  </data>
+  <data name="HudLayout" xml:space="preserve">
+    <value>Layout {0:0} ms, {1:N0} folders, {2:N0} files, video memory {3:N0} MB</value>
+  </data>
+  <data name="HudMasterFileTableRead" xml:space="preserve">
+    <value>read from the master file table of {0}</value>
+  </data>
+  <data name="HudMasterFileTableReading" xml:space="preserve">
+    <value>reading the master file table of {0}, {1:N0} of {2:N0} records</value>
+  </data>
+  <data name="HudNotSupported" xml:space="preserve">
+    <value>not supported</value>
+  </data>
+  <data name="HudPass" xml:space="preserve">
+    <value>{0} {1:0.00} ms</value>
+  </data>
+  <data name="HudSamples" xml:space="preserve">
+    <value>MSAA {0}x</value>
+  </data>
+  <data name="HudScanError" xml:space="preserve">
+    <value>the scan stopped, {0}</value>
+  </data>
+  <data name="HudScanning" xml:space="preserve">
+    <value>Scanning, {0:N0} items, {1:N0} per second, {2}</value>
+  </data>
+  <data name="HudWalked" xml:space="preserve">
+    <value>{0} walked folder by folder</value>
+  </data>
+  <data name="IslandDriveDetail" xml:space="preserve">
+    <value>{0} free of {1}</value>
+  </data>
+  <data name="LegendAgeDay" xml:space="preserve">
+    <value>Within a day</value>
+  </data>
+  <data name="LegendAgeMonth" xml:space="preserve">
+    <value>Within a month</value>
+  </data>
+  <data name="LegendAgeOlder" xml:space="preserve">
+    <value>Older</value>
+  </data>
+  <data name="LegendAgeThreeYears" xml:space="preserve">
+    <value>Within three years</value>
+  </data>
+  <data name="LegendAgeWeek" xml:space="preserve">
+    <value>Within a week</value>
+  </data>
+  <data name="LegendAgeYear" xml:space="preserve">
+    <value>Within a year</value>
+  </data>
+  <data name="LegendAggregate" xml:space="preserve">
+    <value>Smaller items grouped</value>
+  </data>
+  <data name="LegendArchives" xml:space="preserve">
+    <value>Archives and disk images</value>
+  </data>
+  <data name="LegendAudio" xml:space="preserve">
+    <value>Audio</value>
+  </data>
+  <data name="LegendCode" xml:space="preserve">
+    <value>Code and text formats</value>
+  </data>
+  <data name="LegendDocuments" xml:space="preserve">
+    <value>Documents</value>
+  </data>
+  <data name="LegendDrives" xml:space="preserve">
+    <value>Drives</value>
+  </data>
+  <data name="LegendFolders" xml:space="preserve">
+    <value>Folders, lighter when deeper</value>
+  </data>
+  <data name="LegendHidden" xml:space="preserve">
+    <value>Hidden and system items are darker</value>
+  </data>
+  <data name="LegendImages" xml:space="preserve">
+    <value>Images</value>
+  </data>
+  <data name="LegendNoExtension" xml:space="preserve">
+    <value>No extension</value>
+  </data>
+  <data name="LegendOtherTypes" xml:space="preserve">
+    <value>Other types, one color each</value>
+  </data>
+  <data name="LegendPrograms" xml:space="preserve">
+    <value>Programs and libraries</value>
+  </data>
+  <data name="LegendTitleAge" xml:space="preserve">
+    <value>Files by last change</value>
+  </data>
+  <data name="LegendTitleType" xml:space="preserve">
+    <value>Files by type</value>
+  </data>
+  <data name="LegendVideo" xml:space="preserve">
+    <value>Video</value>
+  </data>
+  <data name="LoadingMasterFileTable" xml:space="preserve">
+    <value>Reading the master file table of {0}</value>
+  </data>
+  <data name="LoadingRecords" xml:space="preserve">
+    <value>{0:N0} of {1:N0} records</value>
+  </data>
+  <data name="LoadingScanning" xml:space="preserve">
+    <value>Scanning {0}</value>
+  </data>
+  <data name="LocationIdListNotFound" xml:space="preserve">
+    <value>The location could not be found from its identifier list.</value>
+  </data>
+  <data name="LocationNotFound" xml:space="preserve">
+    <value>The location '{0}' could not be found.</value>
+  </data>
+  <data name="MaterialAcrylic" xml:space="preserve">
+    <value>Acrylic</value>
+  </data>
+  <data name="MaterialMica" xml:space="preserve">
+    <value>Mica</value>
+  </data>
+  <data name="MaterialNone" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="PassAnimate" xml:space="preserve">
+    <value>Animate</value>
+  </data>
+  <data name="PassCull" xml:space="preserve">
+    <value>Cull</value>
+  </data>
+  <data name="PassDraw" xml:space="preserve">
+    <value>Draw</value>
+  </data>
+  <data name="PassEffect" xml:space="preserve">
+    <value>Effect</value>
+  </data>
+  <data name="PassLabels" xml:space="preserve">
+    <value>Labels</value>
+  </data>
+  <data name="PassShadows" xml:space="preserve">
+    <value>Shadows</value>
+  </data>
+  <data name="PassUpload" xml:space="preserve">
+    <value>Upload</value>
+  </data>
+  <data name="RecentClear" xml:space="preserve">
+    <value>Clear the list</value>
+  </data>
+  <data name="RecentNothing" xml:space="preserve">
+    <value>Nothing yet</value>
+  </data>
+  <data name="RecentRemoveMissing" xml:space="preserve">
+    <value>Remove the ones that are gone</value>
+  </data>
+  <data name="SettingAntialias" xml:space="preserve">
+    <value>Antialiasing</value>
+  </data>
+  <data name="SettingColors" xml:space="preserve">
+    <value>Colors</value>
+  </data>
+  <data name="SettingEffect" xml:space="preserve">
+    <value>Effect (E)</value>
+  </data>
+  <data name="SettingElevation" xml:space="preserve">
+    <value>Building height</value>
+  </data>
+  <data name="SettingFile" xml:space="preserve">
+    <value>Show the settings file</value>
+  </data>
+  <data name="SettingGround" xml:space="preserve">
+    <value>Ground</value>
+  </data>
+  <data name="SettingMaterial" xml:space="preserve">
+    <value>Window material</value>
+  </data>
+  <data name="SettingRecentFolders" xml:space="preserve">
+    <value>Recent folders</value>
+  </data>
+  <data name="SettingShowHidden" xml:space="preserve">
+    <value>Show hidden items</value>
+  </data>
+  <data name="SettingShowIsland" xml:space="preserve">
+    <value>Show drives and places</value>
+  </data>
+  <data name="SettingShowLabels" xml:space="preserve">
+    <value>Show names</value>
+  </data>
+  <data name="SettingShowLegend" xml:space="preserve">
+    <value>Show color legend</value>
+  </data>
+  <data name="SettingShowPerformance" xml:space="preserve">
+    <value>Show performance</value>
+  </data>
+  <data name="SettingShowShadows" xml:space="preserve">
+    <value>Show shadows</value>
+  </data>
+  <data name="SettingShowStatus" xml:space="preserve">
+    <value>Show item count and scan</value>
+  </data>
+  <data name="SettingShowThumbnails" xml:space="preserve">
+    <value>Show thumbnails</value>
+  </data>
+  <data name="SettingSunAngle" xml:space="preserve">
+    <value>Sun direction</value>
+  </data>
+  <data name="SettingTheme" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="SettingThumbnailPixels" xml:space="preserve">
+    <value>Thumbnails from</value>
+  </data>
+  <data name="SettingVSync" xml:space="preserve">
+    <value>Vertical sync</value>
+  </data>
+  <data name="SettingWatchChanges" xml:space="preserve">
+    <value>Show changes as they happen</value>
+  </data>
+  <data name="ShaderNotFound" xml:space="preserve">
+    <value>The shader '{0}' is not embedded in the executable.</value>
+  </data>
+  <data name="SunAngleDegrees" xml:space="preserve">
+    <value>{0:0}°</value>
+  </data>
+  <data name="SyntheticFilePrefix" xml:space="preserve">
+    <value>File </value>
+  </data>
+  <data name="SyntheticFolderPrefix" xml:space="preserve">
+    <value>Folder </value>
+  </data>
+  <data name="SyntheticRootName" xml:space="preserve">
+    <value>Synthetic disk</value>
+  </data>
+  <data name="ThemeDark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="ThemeLight" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="ThemeSystem" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="ThumbnailPixels" xml:space="preserve">
+    <value>{0} px on screen</value>
+  </data>
+  <data name="TooltipAggregate" xml:space="preserve">
+    <value>{0}
+{1:N0} smaller items, {2}</value>
+  </data>
+  <data name="TooltipContainer" xml:space="preserve">
+    <value>{0}
+{1:N0} items, {2}</value>
+  </data>
+  <data name="TooltipDrive" xml:space="preserve">
+    <value>{0}
+{1} used of {2}</value>
+  </data>
+  <data name="TooltipFile" xml:space="preserve">
+    <value>{0}
+{1}, modified {2:g}</value>
+  </data>
+  <data name="TooltipFileWithoutDate" xml:space="preserve">
+    <value>{0}
+{1}</value>
+  </data>
+  <data name="TooltipPlace" xml:space="preserve">
+    <value>{0}
+{1}</value>
+  </data>
+  <data name="WindowTitle" xml:space="preserve">
+    <value>Treemapolis</value>
+  </data>
+  <data name="WindowTitleDeviceLost" xml:space="preserve">
+    <value>{0}, the graphics device was lost ({1})</value>
+  </data>
+  <data name="WindowTitleStatistics" xml:space="preserve">
+    <value>{0} ({1:0} fps on {2}, {3:N0} items, {4:N0} drawn)</value>
+  </data>
+</root>

@@ -427,3 +427,11 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# markdown stays local, except the README.
+*.md
+!README.md
+
+# the test harness and its solution stay local.
+Treemapolis.Tests/
+Treemapolis.Tests.slnx

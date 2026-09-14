@@ -1,0 +1,146 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+		<AssemblyName>treemapolis</AssemblyName>
+		<RootNamespace>Treemapolis</RootNamespace>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>true</ImplicitUsings>
+		<PublishAot>true</PublishAot>
+		<InvariantGlobalization>true</InvariantGlobalization>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<IsAotCompatible>true</IsAotCompatible>
+		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<ApplicationIcon>..\Treemapolis.ico</ApplicationIcon>
+		<WindowsSdkPackageVersion>10.0.26100.57</WindowsSdkPackageVersion>
+		<Platforms>x64;ARM64</Platforms>
+
+		<Title>Treemapolis</Title>
+		<Company>Simon Mourier</Company>
+		<Authors>Simon Mourier</Authors>
+		<Product>Treemapolis</Product>
+		<AssemblyTitle>Treemapolis</AssemblyTitle>
+		<Description>A 3D shell namespace navigator in C#, Direct3D 12 and NativeAOT.</Description>
+		<Copyright>Copyright (C) 2026-$([System.DateTime]::UtcNow.ToString("yyyy")) Simon Mourier. All rights reserved.</Copyright>
+
+		<ProductVersion>0.1.0</ProductVersion>
+		<Version>0.1.0</Version>
+		<FileVersion>0.1.0</FileVersion>
+		<InformationalVersion>0.1.0</InformationalVersion>
+		<SourceRevisionId>$([System.DateTime]::UtcNow.ToString("yyyyMMddHH"))</SourceRevisionId>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<EmbeddedResource Update="Res.resx">
+			<Generator>ResXFileCodeGenerator</Generator>
+			<LastGenOutput>Res.Designer.cs</LastGenOutput>
+		</EmbeddedResource>
+		<Compile Update="Res.Designer.cs">
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+			<DependentUpon>Res.resx</DependentUpon>
+		</Compile>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="DirectNAot" Version="1.6.7" />
+		<PackageReference Include="DirectNAot.Extensions" Version="1.6.7" />
+		<PackageReference Include="ShellN" Version="1.0.8" />
+		<PackageReference Include="ShellN.Extensions" Version="1.0.8" />
+		<PackageReference Include="WicNetCore" Version="1.9.6" />
+		<PackageReference Include="Microsoft.Direct3D.DXC" Version="1.9.2607.13" PrivateAssets="all" ExcludeAssets="all" GeneratePathProperty="true" />
+	</ItemGroup>
+
+	<!-- a shader is named Name.stage.hlsl, the stage giving its profile, and the DXIL is embedded so nothing ships beside the exe. -->
+	<!-- the stage looks like a culture to MSBuild, ps is Pashto, hence WithCulture false on the embedded outputs. -->
+	<ItemGroup>
+		<Shader Include="Shaders\*.hlsl" Model="6_0" />
+		<ShaderInclude Include="Shaders\*.hlsli" />
+		<Compile Remove="PublishProfiles\**" />
+		<EmbeddedResource Remove="PublishProfiles\**" />
+		<None Remove="PublishProfiles\**" />
+		<None Remove="Shaders\**" />
+		<None Include="Shaders\Animate.cs.hlsl" />
+		<None Include="Shaders\Blocks.hlsli" />
+		<None Include="Shaders\Blocks.ps.hlsl" />
+		<None Include="Shaders\Blocks.vs.hlsl" />
+		<None Include="Shaders\Common.hlsli" />
+		<None Include="Shaders\Compact.cs.hlsl" />
+		<None Include="Shaders\Cull.cs.hlsl" />
+		<None Include="Shaders\Edges.hlsli" />
+		<None Include="Shaders\Edges.ps.hlsl" />
+		<None Include="Shaders\Edges.vs.hlsl" />
+		<None Include="Shaders\EntryResolve.cs.hlsl" />
+		<None Include="Shaders\Ground.hlsli" />
+		<None Include="Shaders\Ground.ps.hlsl" />
+		<None Include="Shaders\Ground.vs.hlsl" />
+		<None Include="Shaders\Island.hlsli" />
+		<None Include="Shaders\Island.ps.hlsl" />
+		<None Include="Shaders\Island.vs.hlsl" />
+		<None Include="Shaders\Labels.hlsli" />
+		<None Include="Shaders\Labels.ps.hlsl" />
+		<None Include="Shaders\Labels.vs.hlsl" />
+		<None Include="Shaders\Offsets.cs.hlsl" />
+		<None Include="Shaders\Post.hlsli" />
+		<None Include="Shaders\Post.ps.hlsl" />
+		<None Include="Shaders\Post.vs.hlsl" />
+		<None Include="Shaders\Shadow.hlsli" />
+		<None Include="Shaders\Shadow.vs.hlsl" />
+		<UpToDateCheckInput Include="@(Shader);@(ShaderInclude)" />
+	</ItemGroup>
+
+	<PropertyGroup>
+		<DxcHostArchitecture Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64'">arm64</DxcHostArchitecture>
+		<DxcHostArchitecture Condition="'$(DxcHostArchitecture)' == ''">x64</DxcHostArchitecture>
+		<DxcPath>$(PkgMicrosoft_Direct3D_DXC)\build\native\bin\$(DxcHostArchitecture)\dxc.exe</DxcPath>
+		<DxcShaderOutputDir>$(BaseIntermediateOutputPath)$(Platform)\$(Configuration)\Shaders\</DxcShaderOutputDir>
+		<DxcConfigurationArguments Condition="'$(Configuration)' == 'Debug'">-Zi -Qembed_debug -Od</DxcConfigurationArguments>
+		<DxcConfigurationArguments Condition="'$(Configuration)' != 'Debug'">-O3 -Qstrip_debug -Qstrip_reflect</DxcConfigurationArguments>
+	</PropertyGroup>
+
+	<Target Name="TreemapolisCompileShaders" BeforeTargets="PrepareForBuild" Inputs="@(Shader);@(ShaderInclude);$(MSBuildProjectFile)" Outputs="@(Shader->'$(DxcShaderOutputDir)%(Filename).cso')">
+		<MakeDir Directories="$(DxcShaderOutputDir)" />
+		<Exec Command="&quot;$(DxcPath)&quot; -nologo -HV 2021 -WX -T $([System.IO.Path]::GetExtension('%(Shader.Filename)').TrimStart('.'))_%(Shader.Model) -E main -I Shaders $(DxcConfigurationArguments) -Fo &quot;$(DxcShaderOutputDir)%(Shader.Filename).cso&quot; &quot;%(Shader.Identity)&quot;" />
+	</Target>
+
+	<Target Name="TreemapolisEmbedShaders" AfterTargets="TreemapolisCompileShaders" BeforeTargets="PrepareForBuild">
+		<ItemGroup>
+			<_TreemapolisShaderOutput Include="@(Shader->'$(DxcShaderOutputDir)%(Filename).cso')" />
+			<EmbeddedResource Include="@(_TreemapolisShaderOutput)" LogicalName="Treemapolis.Shaders.%(_TreemapolisShaderOutput.Filename)%(_TreemapolisShaderOutput.Extension)" WithCulture="false" />
+		</ItemGroup>
+	</Target>
+
+	<ItemGroup>
+		<Using Include="DirectN" />
+		<Using Include="DirectN.Extensions" />
+		<Using Include="DirectN.Extensions.Com" />
+		<Using Include="DirectN.Extensions.Utilities" />
+		<Using Include="Treemapolis.Chrome" />
+		<Using Include="Treemapolis.Configuration" />
+		<Using Include="Treemapolis.Graphics" />
+		<Using Include="Treemapolis.Layout" />
+		<Using Include="Treemapolis.Namespace" />
+		<Using Include="Treemapolis.Navigation" />
+		<Using Include="Treemapolis.Rendering" />
+		<Using Include="Treemapolis.Shell" />
+		<Using Include="Treemapolis.Text" />
+		<Using Include="Microsoft.Win32.SafeHandles" />
+		<Using Include="System.Buffers.Binary" />
+		<Using Include="System.Collections.Concurrent" />
+		<Using Include="System.ComponentModel" />
+		<Using Include="System.Diagnostics" />
+		<Using Include="System.Diagnostics.CodeAnalysis" />
+		<Using Include="System.Globalization" />
+		<Using Include="System.IO.Enumeration" />
+		<Using Include="System.Numerics" />
+		<Using Include="System.Runtime.CompilerServices" />
+		<Using Include="System.Runtime.InteropServices" />
+		<Using Include="System.Runtime.InteropServices.Marshalling" />
+		<Using Include="System.Text" />
+		<Using Include="System.Text.Json" />
+		<Using Include="System.Text.Json.Serialization" />
+		<Using Include="WicNet" />
+	</ItemGroup>
+
+</Project>
