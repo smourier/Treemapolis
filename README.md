@@ -149,7 +149,7 @@ NativeAOT. The same approach and the same libraries, taken from a flat list of f
 * **Labels** rasterized once into a GPU atlas, **thumbnails** in a bindless texture array, **effects** either as a post pass or as
   anti aliased screen space lines drawn with the scene.
 * **.NET NativeAOT**, with interop through the [DirectNAot](https://github.com/smourier/DirectNAot),
-  [ShellN](https://github.com/smourier/ShellN) and [WicNet](https://github.com/smourier/WicNet) NuGet packages. Shaders are
+  [ShellN](https://github.com/smourier/ShellBat) and [WicNet](https://github.com/smourier/WicNet) NuGet packages. Shaders are
   compiled at build time with DXC, from its NuGet package.
 
 ## Requirements
