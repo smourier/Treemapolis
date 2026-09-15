@@ -24,6 +24,8 @@ public sealed class TitleBar : Control
     private const float _glyphSize = 10;
     private const float _inset = 3;
     private const float _radius = 4;
+    private const float _brandPadding = 10;
+    private const float _brandGap = 8;
 
     private static readonly CaptionButton[] _navigation = [CaptionButton.Back, CaptionButton.Forward, CaptionButton.Up, CaptionButton.Reveal, CaptionButton.Hidden, CaptionButton.FrameAll, CaptionButton.ColorMode];
 
@@ -41,6 +43,9 @@ public sealed class TitleBar : Control
     private string? _measuredStatus;
     private ChromeResources? _measuredResources;
     private float _statusWidth;
+
+    // the icon and the name of the application ahead of the navigation buttons, measured when the caption is drawn.
+    private float _brandWidth;
 
     public int HotWindowButton { get; set; }
     public CaptionButton HotButton { get; private set; }
@@ -104,12 +109,13 @@ public sealed class TitleBar : Control
                 return new D2D_RECT_F { left = ElevateLeft, top = Bounds.top, right = GearLeft, bottom = Bounds.bottom };
 
             var index = Array.IndexOf(_navigation, HotButton);
-            var left = Bounds.left + _navigationWidth * _scale * Math.Max(0, index);
+            var left = NavigationLeft + _navigationWidth * _scale * Math.Max(0, index);
             return new D2D_RECT_F { left = left, top = Bounds.top, right = left + _navigationWidth * _scale, bottom = Bounds.bottom };
         }
     }
 
-    private float NavigationRight => Bounds.left + _navigationWidth * _navigation.Length * _scale;
+    private float NavigationLeft => Bounds.left + _brandWidth;
+    private float NavigationRight => NavigationLeft + _navigationWidth * _navigation.Length * _scale;
     private float GearLeft => Bounds.right - (_buttonWidth * _windowButtonCount + _gearWidth) * _scale;
     private float ElevateLeft => GearLeft - _gearWidth * _scale;
     public D2D_RECT_F GearBounds => new() { left = GearLeft, top = Bounds.top, right = GearLeft + _gearWidth * _scale, bottom = Bounds.bottom };
@@ -125,7 +131,8 @@ public sealed class TitleBar : Control
         if (!Contains(x, y))
             return HitClient;
 
-        if (x < NavigationRight || ButtonAt(x, y) is CaptionButton.Settings or CaptionButton.Elevate)
+        // the icon and the name drag the window like the rest of the caption.
+        if (x >= NavigationLeft && x < NavigationRight || ButtonAt(x, y) is CaptionButton.Settings or CaptionButton.Elevate)
             return HitClient;
 
         var width = _buttonWidth * _scale;
@@ -152,10 +159,10 @@ public sealed class TitleBar : Control
         if (x >= ElevateLeft && x < GearLeft)
             return CaptionButton.Elevate;
 
-        if (x >= NavigationRight)
+        if (x < NavigationLeft || x >= NavigationRight)
             return CaptionButton.None;
 
-        return _navigation[Math.Clamp((int)((x - Bounds.left) / (_navigationWidth * _scale)), 0, _navigation.Length - 1)];
+        return _navigation[Math.Clamp((int)((x - NavigationLeft) / (_navigationWidth * _scale)), 0, _navigation.Length - 1)];
     }
 
     public bool IsEnabled(CaptionButton button) => button switch
@@ -191,11 +198,24 @@ public sealed class TitleBar : Control
         return true;
     }
 
-    public void Render(IComObject<ID2D1DeviceContext> context, ChromeResources resources)
+    public unsafe void Render(IComObject<ID2D1DeviceContext> context, ChromeResources resources)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(resources);
         context.Object.FillRectangle(Bounds, resources.CaptionBackgroundBrush.Object);
+
+        var iconSize = MathF.Round(ChromeResources.AppIconSize * _scale);
+        var iconLeft = MathF.Round(Bounds.left + _brandPadding * _scale);
+        var iconTop = MathF.Round((Bounds.top + Bounds.bottom - iconSize) / 2);
+        if (resources.AppIcon != null)
+        {
+            var destination = new D2D_RECT_F { left = iconLeft, top = iconTop, right = iconLeft + iconSize, bottom = iconTop + iconSize };
+            context.Object.DrawBitmap(resources.AppIcon.Object, (nint)(&destination), 1, D2D1_INTERPOLATION_MODE.D2D1_INTERPOLATION_MODE_HIGH_QUALITY_CUBIC, 0, 0);
+        }
+
+        var nameLeft = iconLeft + iconSize + _brandGap * _scale;
+        ChromeResources.DrawText(context, Res.WindowTitle, resources.AppNameFormat, new D2D_RECT_F { left = nameLeft, top = Bounds.top, right = nameLeft + resources.AppNameWidth, bottom = Bounds.bottom }, resources.TextBrush);
+        _brandWidth = nameLeft + resources.AppNameWidth + _brandPadding * _scale - Bounds.left;
 
         var glyphs = resources.Glyphs;
         for (var i = 0; i < _navigation.Length; i++)
@@ -211,7 +231,7 @@ public sealed class TitleBar : Control
                 CaptionButton.Hidden => glyphs.Hidden,
                 _ => glyphs.ColorMode,
             };
-            var left = Bounds.left + _navigationWidth * _scale * i;
+            var left = NavigationLeft + _navigationWidth * _scale * i;
             DrawGlyphButton(context, resources, ref _navigationHovers[i], button, glyph, left, _navigationWidth);
         }
 

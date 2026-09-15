@@ -12,6 +12,8 @@ public sealed class ChromeResources : IDisposable
     private const uint _islandDetail = 0xFFA9B6C4;
     private const string _widthSample = @"C:\Windows\System32\drivers\etc 0123456789";
 
+    public const float AppIconSize = 16;
+
     private readonly List<IComObject<IDWriteInlineObject>> _trimmingSigns = [];
 
     public ChromeResources(IComObject<ID2D1DeviceContext> context, IComObject<IDWriteFactory> factory, Glyphs glyphs, Palette palette, bool onMaterial, float scale)
@@ -29,6 +31,7 @@ public sealed class ChromeResources : IDisposable
         CaptionFormat = CreateFormat(factory, _fontFamily, _captionFontSize * scale, DWRITE_TEXT_ALIGNMENT.DWRITE_TEXT_ALIGNMENT_LEADING);
         CaptionCenterFormat = CreateFormat(factory, _fontFamily, _captionFontSize * scale, DWRITE_TEXT_ALIGNMENT.DWRITE_TEXT_ALIGNMENT_CENTER);
         CaptionRightFormat = CreateFormat(factory, _fontFamily, _captionFontSize * scale, DWRITE_TEXT_ALIGNMENT.DWRITE_TEXT_ALIGNMENT_TRAILING);
+        AppNameFormat = CreateFormat(factory, _fontFamily, _captionFontSize * scale, DWRITE_TEXT_ALIGNMENT.DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_FONT_WEIGHT.DWRITE_FONT_WEIGHT_SEMI_BOLD);
         GlyphFormat = CreateFormat(factory, glyphs.Family, _glyphFontSize * scale, DWRITE_TEXT_ALIGNMENT.DWRITE_TEXT_ALIGNMENT_CENTER);
         StatusFormat = factory.CreateTextFormat(_fontFamily, MathF.Round(_statusFontSize * scale), weight: DWRITE_FONT_WEIGHT.DWRITE_FONT_WEIGHT_SEMI_BOLD);
         PanelFormat = factory.CreateTextFormat(_fontFamily, MathF.Round(_panelFontSize * scale));
@@ -36,6 +39,11 @@ public sealed class ChromeResources : IDisposable
         using var sample = factory.CreateTextLayout(CaptionFormat, _widthSample);
         sample.Object.GetMetrics(out var metrics).ThrowOnError();
         CaptionCharacterWidth = MathF.Max(1, metrics.width / _widthSample.Length);
+
+        using var name = factory.CreateTextLayout(AppNameFormat, Res.WindowTitle);
+        name.Object.GetMetrics(out var nameMetrics).ThrowOnError();
+        AppNameWidth = MathF.Ceiling(nameMetrics.widthIncludingTrailingWhitespace);
+        AppIcon = CreateAppIcon(context, (int)MathF.Round(AppIconSize * scale));
 
         CaptionBackgroundBrush = context.CreateSolidColorBrush(onMaterial ? palette.CaptionOnMaterial : palette.CaptionBackground);
         TextBrush = context.CreateSolidColorBrush(palette.Text);
@@ -65,6 +73,10 @@ public sealed class ChromeResources : IDisposable
     public bool OnMaterial { get; }
     public float Scale { get; }
     public float CaptionCharacterWidth { get; }
+    public float AppNameWidth { get; }
+
+    // the executable's own icon at the size of the monitor scale, null when it cannot be loaded.
+    public IComObject<ID2D1Bitmap>? AppIcon { get; }
 
     // how long the last chrome frame took, which is what every hover fade advances by.
     public float ElapsedSeconds { get; set; }
@@ -75,6 +87,7 @@ public sealed class ChromeResources : IDisposable
     public IComObject<IDWriteTextFormat> CaptionFormat { get; }
     public IComObject<IDWriteTextFormat> CaptionCenterFormat { get; }
     public IComObject<IDWriteTextFormat> CaptionRightFormat { get; }
+    public IComObject<IDWriteTextFormat> AppNameFormat { get; }
     public IComObject<IDWriteTextFormat> GlyphFormat { get; }
     public IComObject<IDWriteTextFormat> StatusFormat { get; }
     public IComObject<IDWriteTextFormat> PanelFormat { get; }
@@ -135,10 +148,29 @@ public sealed class ChromeResources : IDisposable
         }
     }
 
-    // text too long for its room ends with an ellipsis rather than a glyph cut in half.
-    private IComObject<IDWriteTextFormat> CreateFormat(IComObject<IDWriteFactory> factory, string family, float size, DWRITE_TEXT_ALIGNMENT alignment)
+    // loaded at the pixel size it is drawn at, the icon file holds a frame drawn for each common size.
+    private static IComObject<ID2D1Bitmap>? CreateAppIcon(IComObject<ID2D1DeviceContext> context, int size)
     {
-        var format = factory.CreateTextFormat(family, MathF.Round(size));
+        try
+        {
+            using var icon = DirectN.Extensions.Utilities.Icon.LoadApplicationIcon(size);
+            if (icon == null)
+                return null;
+
+            using var bitmap = WicImagingFactory.CreateBitmapFromHICON(icon.Handle);
+            return ShellImage.FromBitmap(bitmap).CreateBitmap(context);
+        }
+        catch (Exception ex)
+        {
+            Application.TraceWarning($"the application icon could not be loaded: {ex.Message}");
+            return null;
+        }
+    }
+
+    // text too long for its room ends with an ellipsis rather than a glyph cut in half.
+    private IComObject<IDWriteTextFormat> CreateFormat(IComObject<IDWriteFactory> factory, string family, float size, DWRITE_TEXT_ALIGNMENT alignment, DWRITE_FONT_WEIGHT weight = DWRITE_FONT_WEIGHT.DWRITE_FONT_WEIGHT_NORMAL)
+    {
+        var format = factory.CreateTextFormat(family, MathF.Round(size), weight: weight);
         format.Object.SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT.DWRITE_PARAGRAPH_ALIGNMENT_CENTER).ThrowOnError();
         format.Object.SetWordWrapping(DWRITE_WORD_WRAPPING.DWRITE_WORD_WRAPPING_NO_WRAP).ThrowOnError();
         format.Object.SetTextAlignment(alignment).ThrowOnError();
@@ -153,6 +185,7 @@ public sealed class ChromeResources : IDisposable
         CaptionFormat.Dispose();
         CaptionCenterFormat.Dispose();
         CaptionRightFormat.Dispose();
+        AppNameFormat.Dispose();
         GlyphFormat.Dispose();
         StatusFormat.Dispose();
         PanelFormat.Dispose();
@@ -174,6 +207,7 @@ public sealed class ChromeResources : IDisposable
         IslandTextBrush.Dispose();
         IslandDetailBrush.Dispose();
         ThumbBrush.Dispose();
+        AppIcon?.Dispose();
         foreach (var sign in _trimmingSigns)
         {
             sign.Dispose();

@@ -9,8 +9,51 @@ public sealed class ShellScanner(NamespaceTree tree)
 {
     private const string _namespacePrefix = "::";
     private const string _guidFormat = "B";
+    private const string _uncPrefix = @"\\";
+    private const int _driveRootLength = 3;
 
     public static string ComputerParsingName { get; } = _namespacePrefix + ShellN.Constants.CLSID_MyComputer.ToString(_guidFormat);
+
+    public static bool IsComputer(string? parsingName) => string.Equals(parsingName, ComputerParsingName, StringComparison.OrdinalIgnoreCase);
+
+    public static IReadOnlySet<string> GetLocalDriveRoots()
+    {
+        var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var drive in DriveInfo.GetDrives())
+            {
+                if (drive.DriveType != DriveType.Network)
+                {
+                    roots.Add(drive.Name);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Application.TraceWarning($"the drives could not be listed: {ex.Message}");
+        }
+        return roots;
+    }
+
+    public static bool IsHiddenLocation(string? path, IReadOnlySet<string> localDriveRoots)
+    {
+        ArgumentNullException.ThrowIfNull(localDriveRoots);
+        if (path == null)
+            return false;
+
+        if (path.StartsWith(_uncPrefix, StringComparison.Ordinal))
+            return true;
+
+        return path.Length == _driveRootLength && path[1] == Path.VolumeSeparatorChar && !localDriveRoots.Contains(path);
+    }
+
+    public static bool IsHiddenLocation(ShellItem item, IReadOnlySet<string> localDriveRoots)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        return IsHiddenLocation(item.GetDisplayName(SIGDN.SIGDN_DESKTOPABSOLUTEPARSING, false), localDriveRoots)
+            || (item.IsDrive && IsHiddenLocation(item.GetDisplayName(SIGDN.SIGDN_FILESYSPATH, false), localDriveRoots));
+    }
 
     public int AddRoot(string parsingName)
     {
@@ -46,11 +89,15 @@ public sealed class ShellScanner(NamespaceTree tree)
                     return;
 
                 var flags = _SHCONTF.SHCONTF_FOLDERS | _SHCONTF.SHCONTF_NONFOLDERS | _SHCONTF.SHCONTF_INCLUDEHIDDEN;
+                var localDriveRoots = IsComputer(node.ParsingName) ? GetLocalDriveRoots() : null;
                 foreach (var child in folder.EnumerateChildren(flags))
                 {
                     using (child)
                     {
-                        Add(index, child);
+                        if (localDriveRoots == null || !IsHiddenLocation(child, localDriveRoots))
+                        {
+                            Add(index, child);
+                        }
                     }
                 }
             }

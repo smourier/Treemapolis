@@ -40,8 +40,12 @@ public sealed class PlacesProvider : IDisposable
     private async Task LoadAsync()
     {
         var places = new List<Place>();
+        var localDriveRoots = ShellScanner.GetLocalDriveRoots();
         foreach (var drive in DriveInfo.GetDrives())
         {
+            if (!localDriveRoots.Contains(drive.Name))
+                continue;
+
             try
             {
                 using var item = ShellItem.FromParsingName(drive.Name, throwOnError: false);

@@ -20,12 +20,12 @@ public sealed class MainWindow : Window
     private const int _saveQuietMilliseconds = 1000;
     private const nuint _xButtonForward = 2;
     private const double _minimumElevation = 0;
-    private const double _maximumElevation = 1000;
     private const double _elevationStep = 25;
     private const double _maximumSunAngle = 355;
     private const double _sunAngleStep = 5;
     private const double _tooltipDelaySeconds = 0.5;
     private const float _islandWidth = 230;
+    private const float _framingMargin = 24;
     private const float _islandTextInset = 8;
     private const float _islandNameShare = 0.44f;
     private const float _islandDetailShare = 0.7f;
@@ -114,7 +114,7 @@ public sealed class MainWindow : Window
         ArgumentNullException.ThrowIfNull(options);
         _options = options;
         ValidateOnPaint = false;
-        _settingsFile = new SettingsFile(options.SettingsPath);
+        _settingsFile = new SettingsFile(options.SettingsPath, options.FreshSettings);
         _settings = _settingsFile.Load();
         _saveTimer = new Timer(_ => OnSaveElapsed(), null, Timeout.Infinite, Timeout.Infinite);
         _thumbnails = new ThumbnailLoader(() => Invalidate(null, false));
@@ -270,7 +270,7 @@ public sealed class MainWindow : Window
         {
             _framedRoot = snapshot.Root;
             RememberRecent(snapshot.Tree, snapshot.Root);
-            _camera.FlyToFrame(snapshot.BoundsMin, snapshot.BoundsMax);
+            _camera.FlyToFrame(snapshot.BoundsMin, snapshot.BoundsMax, SceneAspectRatio, GetFramingArea());
             return;
         }
 
@@ -289,8 +289,22 @@ public sealed class MainWindow : Window
 
     private void FrameCamera(LayoutSnapshot snapshot)
     {
-        _camera.Frame(snapshot.BoundsMin, snapshot.BoundsMax);
+        _camera.Frame(snapshot.BoundsMin, snapshot.BoundsMax, SceneAspectRatio, GetFramingArea());
         _framedView = _camera.View;
+    }
+
+    private float IslandRight => (_panelMargin + _islandWidth) * DpiScale;
+
+    private float SceneAspectRatio => _swapChain.Width / (float)Math.Max(1, _swapChain.Height);
+
+    private Vector4 GetFramingArea()
+    {
+        var width = (float)Math.Max(1, _swapChain.Width);
+        var height = (float)Math.Max(1, _swapChain.Height);
+        var margin = _framingMargin * DpiScale;
+        var left = (_settings.ShowIsland ? IslandRight : 0) + margin;
+        var top = ChromeTop + margin;
+        return new Vector4(2 * left / width - 1, 2 * margin / height - 1, 1 - 2 * margin / width, 1 - 2 * top / height);
     }
 
     // once the device is gone nothing it made can be used again, the landscape stops and says why rather than throwing every frame.
@@ -320,6 +334,7 @@ public sealed class MainWindow : Window
 
     private void RenderFrameCore()
     {
+        _device.FlushMessages();
         _swapChain.WaitForFrame();
         var frameStart = _statistics.BeginFrame();
         _navigator.Update(_statistics.Seconds);
@@ -389,7 +404,7 @@ public sealed class MainWindow : Window
         Functions.GetClientRect(Handle, out var client);
         var scale = DpiScale;
         var margin = _panelMargin * scale;
-        var viewport = new D2D_RECT_F { left = margin, top = ChromeTop + _islandTopMargin * scale, right = margin + _islandWidth * scale, bottom = client.bottom - margin };
+        var viewport = new D2D_RECT_F { left = margin, top = ChromeTop + _islandTopMargin * scale, right = IslandRight, bottom = client.bottom - margin };
         if (viewport.left != island.Viewport.left || viewport.top != island.Viewport.top || viewport.right != island.Viewport.right || viewport.bottom != island.Viewport.bottom)
         {
             island.Viewport = viewport;
@@ -762,7 +777,7 @@ public sealed class MainWindow : Window
 
     private void ApplySettings()
     {
-        _layout.Options = new LayoutOptions(_settings.ColorMode, _settings.ShowHidden, (float)(Math.Clamp(_settings.Elevation, _minimumElevation, _maximumElevation) / 100));
+        _layout.Options = new LayoutOptions(_settings.ColorMode, _settings.ShowHidden, (float)(Math.Clamp(_settings.Elevation, _minimumElevation, Settings.MaximumElevation) / 100));
         _titleBar.ShowHidden = _settings.ShowHidden;
         _renderer.SetSampleCount((uint)Math.Max(1, _settings.Antialias));
         _performancePanel.IsVisible = _settings.ShowPerformance;
@@ -775,6 +790,7 @@ public sealed class MainWindow : Window
         _renderer.SunAngle = (float)_settings.SunAngle;
         _renderer.Ground = _settings.Ground;
         _explorer.WatchChanges = _settings.WatchChanges;
+        _explorer.ScanDrives = _settings.ScanDrives;
         _renderer.Labels.MinimumThumbnailPixels = Math.Max(1, _settings.MinimumThumbnailPixels);
         ApplyTheme();
     }
@@ -974,6 +990,11 @@ public sealed class MainWindow : Window
                 ApplySettings();
                 break;
 
+            case nameof(Settings.ScanDrives) when bool.TryParse(value, out var scanDrives):
+                _settings.ScanDrives = scanDrives;
+                ApplySettings();
+                break;
+
             case nameof(Settings.ShowIsland) when bool.TryParse(value, out var island):
                 _settings.ShowIsland = island;
                 ApplySettings();
@@ -1080,12 +1101,13 @@ public sealed class MainWindow : Window
         ToggleEntry(Res.SettingShowHidden, () => _settings.ShowHidden, value => _settings.ShowHidden = value),
         ToggleEntry(Res.SettingShowIsland, () => _settings.ShowIsland, value => _settings.ShowIsland = value),
         ToggleEntry(Res.SettingWatchChanges, () => _settings.WatchChanges, value => _settings.WatchChanges = value),
+        ToggleEntry(Res.SettingScanDrives, () => _settings.ScanDrives, value => _settings.ScanDrives = value),
         new MenuEntry
         {
             Label = Res.SettingElevation,
             Kind = MenuEntryKind.Slider,
             Minimum = _minimumElevation,
-            Maximum = _maximumElevation,
+            Maximum = Settings.MaximumElevation,
             Step = _elevationStep,
             Number = () => _settings.Elevation,
             Value = () => string.Format(CultureInfo.CurrentCulture, Res.ElevationPercent, _settings.Elevation),

@@ -348,6 +348,11 @@ public sealed class ChangeWatcher : IDisposable
         if (item == null || parsingName == null)
             return;
 
+        // a drive that went away is no longer listed, so only an arrival is checked.
+        var added = (kind & _driveAddEvents) != 0;
+        if (added && ShellScanner.IsHiddenLocation(item, ShellScanner.GetLocalDriveRoots()))
+            return;
+
         lock (_lock)
         {
             if (_disposed || _computer == Entry.None)
@@ -363,7 +368,7 @@ public sealed class ChangeWatcher : IDisposable
                 }
             }
 
-            if ((kind & _driveAddEvents) != 0)
+            if (added)
             {
                 if (existing == Entry.None)
                 {

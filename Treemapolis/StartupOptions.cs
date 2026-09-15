@@ -7,6 +7,7 @@ public sealed class StartupOptions
     private const string _debugArgument = "debug";
     private const string _gpuValidationArgument = "gpuvalidation";
     private const string _settingsArgument = "settings";
+    private const string _freshSettingsArgument = "freshsettings";
 
     public string? Location { get; init; }
     public bool UseWarp { get; init; }
@@ -19,6 +20,9 @@ public sealed class StartupOptions
     // null is the user's own settings file, a test run points at one of its own.
     public string? SettingsPath { get; init; }
 
+    // the defaults for this run only, nothing is read from the settings file nor written to it.
+    public bool FreshSettings { get; init; }
+
     public static StartupOptions FromCommandLine(CommandLine commandLine, string? defaultSettingsPath = null)
     {
         ArgumentNullException.ThrowIfNull(commandLine);
@@ -28,6 +32,7 @@ public sealed class StartupOptions
             UseWarp = commandLine.HasArgument(_warpArgument),
             GpuValidation = commandLine.HasArgument(_gpuValidationArgument),
             SettingsPath = commandLine.GetNullifiedArgument(_settingsArgument) ?? defaultSettingsPath,
+            FreshSettings = commandLine.HasArgument(_freshSettingsArgument),
             VSync = commandLine.GetArgument(_vsyncArgument, true),
 #if DEBUG
             Debug = commandLine.GetArgument(_debugArgument, true),

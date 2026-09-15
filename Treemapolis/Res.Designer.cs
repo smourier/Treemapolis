@@ -898,6 +898,15 @@ namespace Treemapolis {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Scan every drive in the background.
+        /// </summary>
+        internal static string SettingScanDrives {
+            get {
+                return ResourceManager.GetString("SettingScanDrives", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Show hidden items.
         /// </summary>
         internal static string SettingShowHidden {

@@ -4,14 +4,15 @@
 slab, every file a building as big as it weighs on disk. It is a technology demo of DirectX 12 driven from C# and .NET NativeAOT,
 and it is also a genuinely fast disk space explorer.
 
-![From a flat treemap to a city](media/treemapolis-rise.gif)
+![Treemapolis in action, at double speed](media/treemapolis-rise.gif)
 
 🎬 **[Watch the demo video](media/treemapolis-demo.mp4)** (2:08, everything below, in real time)
 
 ## At a glance
 
 * **Windows only.** DirectX 12, DirectComposition, the Windows shell and NTFS are the whole point, there is no cross platform version, we stick to the metal.
-* **x64 and ARM64**, compiled ahead of time with .NET NativeAOT. **No runtime to install, one self contained executable about 3 MB** once compressed with UPX.
+* **x64 and ARM64**, compiled ahead of time with .NET NativeAOT. **No runtime to install, one self contained executable about 3 MB** once compressed with UPX
+  (x64, UPX cannot pack ARM64 images, so that one ships at its full size).
 * **100 % C#, plus HLSL shaders.** We don't need no C, C++, Rust, Zig or any other native code of our own, and no native DLL beside the exe.
   We do have HLSL shaders because that is what a GPU runs, compiled at build time. The language is not the point, the technology is:
   a GPU driven renderer, compute shaders, indirect drawing and direct NTFS access, all reached from C#.
@@ -26,14 +27,17 @@ and it is also a genuinely fast disk space explorer.
 
 * **The whole shell namespace**, not only file systems: This PC, drives, libraries, the Desktop, network locations, and any folder the
   shell knows about.
+* **Every local drive at once.** This PC scans all of them in the background, the Windows drive first, so the whole machine fills in
+  while you look. Mapped network drives and shares are left out, a server can be slow or gone. A setting turns the scan off.
 * **Squarified 3D treemap.** Folders are slabs stacked by depth, files are blocks sized by what they take on disk. Small items are
   gathered into one block so the map stays readable.
 * **Master file table reading** on NTFS when elevated. A shield button in the caption, or F2, restarts elevated in the same place with
   the same camera. A loading panel shows the progress while a drive is read.
 
 ![All of C: read from its master file table, 2.8 million items](media/mft.jpg)
+
 * **Colors by file type or by age**, with a legend. Hidden and system items are darker, and can be hidden altogether.
-* **Building height slider**, from a flat classic treemap up to a skyline ten times taller.
+* **Building height slider**, from a flat classic treemap up to a skyline ten times taller, the tallest by default.
 
 ![Performance overlay and legend](media/overlays.jpg)
 
@@ -42,7 +46,7 @@ and it is also a genuinely fast disk space explorer.
 * **Orbit, pan and zoom** with the mouse, the camera flies smoothly from one place to the next.
 * **Dive into any folder** with a double click, back, forward and up like a browser, with the history kept across folders.
 * **Street level.** Come down between the buildings and look up at them and at the sky.
-* **Drives and places island** on the left, always there: every drive with its free space, and the children of the Desktop, with their
+* **Drives and places island** on the left, always there: every local drive with its free space, and the children of the Desktop, with their
   shell icons. A click takes you there.
 * **Names you can always read.** Folder names lie flat on their slab, and when the camera goes round to the other side they turn half
   a turn within the same band, so they never read upside down or backwards.
@@ -53,6 +57,7 @@ and it is also a genuinely fast disk space explorer.
 
 * **Hover** any block for its name, size and date, **right click** for its real shell context menu, **reveal it in Explorer**.
 * **Recent folders**, `treemapolis <path>` from the command line, and the last place and camera restored at startup.
+  `treemapolis /freshsettings` starts from the default settings and leaves the saved ones untouched.
 
 ![Street level](media/street.jpg)
 
@@ -68,7 +73,7 @@ and it is also a genuinely fast disk space explorer.
 ### Live
 
 * **The disk is watched.** Files and folders created, grown or deleted while you look flash green, amber or red, files jump up and
-  settle, removed items sink away. Drives plugged in or removed update the island.
+  settle, removed items sink away. Drives plugged in or removed update the island and This PC.
 
 ### Light, shadows and effects
 
@@ -89,10 +94,10 @@ and it is also a genuinely fast disk space explorer.
 ### A proper Windows app
 
 * **Dark and light themes** following Windows, **Mica and Acrylic** window materials on Windows 11.
-* **Its own caption bar** with navigation buttons, working snap layouts, per monitor DPI, and borderless **full screen** (Alt+Enter)
+* **Its own caption bar** with the icon, the name and navigation buttons, working snap layouts, per monitor DPI, and borderless **full screen** (Alt+Enter)
   that keeps the caption.
 * **Settings menu** with everything above, saved as JSON beside the exe or in `%LOCALAPPDATA%\Treemapolis`.
-* **Performance overlay** with frames per second, CPU time and GPU time per pass, instance counts, video memory and adapter features.
+* **Performance overlay** (F3, off by default) with frames per second, CPU time and GPU time per pass, instance counts, video memory and adapter features.
 
 ![Light theme and settings](media/light-settings.jpg)
 
@@ -128,6 +133,7 @@ and it is also a genuinely fast disk space explorer.
 
 ## Requirements
 
-* Windows 10 version 2004 or later, Windows 11 for Mica and Acrylic.
-* A GPU with Direct3D 12 feature level 12.0.
+* Windows 10 version 2004 or later, Windows 11 for Mica and Acrylic. Virtual Machines are supported.
+* A GPU with Direct3D 12 feature level 12.0. Without one, Treemapolis falls back to WARP, the software renderer that comes with Windows,
+  which is slower but draws everything, effects included.
 * Administrator rights only to read NTFS master file tables, everything else runs as a normal user.

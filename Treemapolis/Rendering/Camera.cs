@@ -11,7 +11,10 @@ public sealed class Camera
     private const float _maximumDistance = 1e6f;
     private const float _zoomPerNotch = 0.85f;
     private const float _framingPitch = MathF.PI / 7;
-    private const float _framingMargin = 0.75f;
+    private const int _framingSteps = 32;
+    private const int _boxCorners = 8;
+    private const int _centeringPasses = 4;
+    private const float _minimumFramingSine = 0.2f;
     private const double _flightSeconds = 0.8;
 
     private Vector3 _flightStartTarget;
@@ -26,11 +29,9 @@ public sealed class Camera
     public float Yaw { get; set; }
     private float _pitch = _framingPitch;
 
-    // above zero the camera orbits down towards the ground, below zero it lies on the ground and looks up, clamped however it is set.
     public float Pitch { get => _pitch; set => _pitch = Math.Clamp(value, _minimumPitch, _maximumPitch); }
     public float FieldOfView { get; set; } = MathF.PI / 3;
 
-    // the map the camera stands on when it comes down, its folders are the floor, null is the bare ground.
     public LayoutSnapshot? Terrain { get; set; }
 
     // never below the floor under it, the top of the folders there or the ground, the eye stays a little above it.
@@ -47,7 +48,6 @@ public sealed class Camera
         }
     }
 
-    // the target, or a point above it when the camera lies on the ground and looks up, so the view tilts on from where the orbit stopped.
     public Vector3 LookPoint => Pitch >= 0 ? Target : Target + new Vector3(0, MathF.Tan(-Pitch) * Distance, 0);
 
     public bool IsFlying => !double.IsNaN(_flightStart);
@@ -122,26 +122,84 @@ public sealed class Camera
 
     public void Zoom(float notches) => Distance = Math.Clamp(Distance * MathF.Pow(_zoomPerNotch, notches), _minimumDistance, _maximumDistance);
 
-    // from the front, looking down on the whole map.
-    public void Frame(Vector3 boundsMin, Vector3 boundsMax)
+    public void Frame(Vector3 boundsMin, Vector3 boundsMax, float aspectRatio, Vector4 freeArea)
     {
-        GetFraming(boundsMin, boundsMax, out var target, out var distance);
-        Target = target;
-        Distance = distance;
         Yaw = 0;
         Pitch = _framingPitch;
+        GetFraming(boundsMin, boundsMax, aspectRatio, freeArea, out var target, out var distance);
+        Target = target;
+        Distance = distance;
     }
 
-    public void FlyToFrame(Vector3 boundsMin, Vector3 boundsMax)
+    public void FlyToFrame(Vector3 boundsMin, Vector3 boundsMax, float aspectRatio, Vector4 freeArea)
     {
-        GetFraming(boundsMin, boundsMax, out var target, out var distance);
+        GetFraming(boundsMin, boundsMax, aspectRatio, freeArea, out var target, out var distance);
         FlyTo(target, distance);
     }
 
-    private static void GetFraming(Vector3 boundsMin, Vector3 boundsMax, out Vector3 target, out float distance)
+    private void GetFraming(Vector3 boundsMin, Vector3 boundsMax, float aspectRatio, Vector4 freeArea, out Vector3 target, out float distance)
     {
-        var extent = boundsMax - boundsMin;
+        Span<Vector3> corners = stackalloc Vector3[_boxCorners];
+        for (var i = 0; i < _boxCorners; i++)
+        {
+            corners[i] = new Vector3((i & 1) != 0 ? boundsMax.X : boundsMin.X, (i & 2) != 0 ? boundsMax.Y : boundsMin.Y, (i & 4) != 0 ? boundsMax.Z : boundsMin.Z);
+        }
+
+        var orbit = MathF.Max(Pitch, 0);
+        var direction = new Vector3(MathF.Sin(Yaw) * MathF.Cos(orbit), MathF.Sin(orbit), MathF.Cos(Yaw) * MathF.Cos(orbit));
+        var right = new Vector3(MathF.Cos(Yaw), 0, -MathF.Sin(Yaw));
+        var forward = new Vector3(-MathF.Sin(Yaw), 0, -MathF.Cos(Yaw));
+        var projection = GetProjection(aspectRatio);
+        var halfHeight = MathF.Tan(FieldOfView * 0.5f);
+        var freeCenter = new Vector2(freeArea.X + freeArea.Z, freeArea.Y + freeArea.W) * 0.5f;
         target = new Vector3((boundsMin.X + boundsMax.X) * 0.5f, 0, (boundsMin.Z + boundsMax.Z) * 0.5f);
-        distance = Math.Clamp(MathF.Max(extent.X, extent.Z) * _framingMargin + extent.Y, _minimumDistance, _maximumDistance);
+        distance = _maximumDistance;
+        for (var pass = 0; pass < _centeringPasses; pass++)
+        {
+            var near = MathF.Log(_minimumDistance);
+            var far = MathF.Log(_maximumDistance);
+            for (var step = 0; step < _framingSteps; step++)
+            {
+                var middle = (near + far) * 0.5f;
+                if (Measure(corners, GetViewProjection(target, direction, MathF.Exp(middle), projection), out var box) && box.X >= freeArea.X && box.Y >= freeArea.Y && box.Z <= freeArea.Z && box.W <= freeArea.W)
+                {
+                    far = middle;
+                }
+                else
+                {
+                    near = middle;
+                }
+            }
+
+            distance = MathF.Exp(far);
+            if (!Measure(corners, GetViewProjection(target, direction, distance, projection), out var fitted))
+                break;
+
+            // one unit of the view spans this much of the world at the target, sideways as it is, up the screen stretched over the ground.
+            var offset = freeCenter - new Vector2(fitted.X + fitted.Z, fitted.Y + fitted.W) * 0.5f;
+            var sideways = offset.X * distance * halfHeight * aspectRatio;
+            var along = offset.Y * distance * halfHeight / MathF.Max(MathF.Sin(orbit), _minimumFramingSine);
+            target -= right * sideways + forward * along;
+        }
+    }
+
+    private static Matrix4x4 GetViewProjection(Vector3 target, Vector3 direction, float distance, Matrix4x4 projection) =>
+        Matrix4x4.CreateLookAt(target + direction * distance, target, Vector3.UnitY) * projection;
+
+    // the rectangle the corners cover on screen in normalized device coordinates, false when one is behind the eye.
+    private static bool Measure(ReadOnlySpan<Vector3> corners, Matrix4x4 viewProjection, out Vector4 box)
+    {
+        box = new Vector4(float.MaxValue, float.MaxValue, float.MinValue, float.MinValue);
+        foreach (var corner in corners)
+        {
+            var clip = Vector4.Transform(new Vector4(corner, 1), viewProjection);
+            if (clip.W <= _nearPlane)
+                return false;
+
+            var x = clip.X / clip.W;
+            var y = clip.Y / clip.W;
+            box = new Vector4(MathF.Min(box.X, x), MathF.Min(box.Y, y), MathF.Max(box.Z, x), MathF.Max(box.W, y));
+        }
+        return true;
     }
 }

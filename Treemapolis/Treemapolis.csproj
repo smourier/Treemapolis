@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<OutputType>WinExe</OutputType>
@@ -49,7 +49,7 @@
 		<PackageReference Include="ShellN" Version="1.0.8" />
 		<PackageReference Include="ShellN.Extensions" Version="1.0.8" />
 		<PackageReference Include="WicNetCore" Version="1.9.6" />
-		<PackageReference Include="Microsoft.Direct3D.DXC" Version="1.9.2607.13" PrivateAssets="all" ExcludeAssets="all" GeneratePathProperty="true" />
+		<PackageReference Include="Microsoft.Direct3D.DXC" Version="1.8.2505.32" PrivateAssets="all" ExcludeAssets="all" GeneratePathProperty="true" />
 	</ItemGroup>
 
 	<!-- a shader is named Name.stage.hlsl, the stage giving its profile, and the DXIL is embedded so nothing ships beside the exe. -->
@@ -95,8 +95,8 @@
 		<DxcHostArchitecture Condition="'$(DxcHostArchitecture)' == ''">x64</DxcHostArchitecture>
 		<DxcPath>$(PkgMicrosoft_Direct3D_DXC)\build\native\bin\$(DxcHostArchitecture)\dxc.exe</DxcPath>
 		<DxcShaderOutputDir>$(BaseIntermediateOutputPath)$(Platform)\$(Configuration)\Shaders\</DxcShaderOutputDir>
-		<DxcConfigurationArguments Condition="'$(Configuration)' == 'Debug'">-Zi -Qembed_debug -Od</DxcConfigurationArguments>
-		<DxcConfigurationArguments Condition="'$(Configuration)' != 'Debug'">-O3 -Qstrip_debug -Qstrip_reflect</DxcConfigurationArguments>
+		<!-- one set of flags for every configuration, the Windows 10 D3D12 runtime crashes on shaders built with -Od or -Zi. -->
+		<DxcConfigurationArguments>-O3 -Qstrip_debug -Qstrip_reflect</DxcConfigurationArguments>
 	</PropertyGroup>
 
 	<Target Name="TreemapolisCompileShaders" BeforeTargets="PrepareForBuild" Inputs="@(Shader);@(ShaderInclude);$(MSBuildProjectFile)" Outputs="@(Shader->'$(DxcShaderOutputDir)%(Filename).cso')">

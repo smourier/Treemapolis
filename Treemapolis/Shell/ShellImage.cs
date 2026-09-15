@@ -23,4 +23,18 @@ public sealed class ShellImage
         }
         return new ShellImage { Width = (int)size.width, Height = (int)size.height, Pixels = pixels };
     }
+
+    public unsafe IComObject<ID2D1Bitmap> CreateBitmap(IComObject<ID2D1DeviceContext> context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        var properties = new D2D1_BITMAP_PROPERTIES1
+        {
+            pixelFormat = new D2D1_PIXEL_FORMAT { format = DXGI_FORMAT.DXGI_FORMAT_B8G8R8A8_UNORM, alphaMode = D2D1_ALPHA_MODE.D2D1_ALPHA_MODE_PREMULTIPLIED },
+        };
+
+        fixed (byte* pixels = Pixels)
+        {
+            return context.CreateBitmap(new D2D_SIZE_U((uint)Width, (uint)Height), (nint)pixels, (uint)(Width * BytesPerPixel), properties);
+        }
+    }
 }

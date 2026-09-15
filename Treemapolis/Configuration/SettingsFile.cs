@@ -14,8 +14,10 @@ public sealed class SettingsFile
     private readonly Lock _queueLock = new();
     private Task _writes = Task.CompletedTask;
 
-    public SettingsFile(string? location = null)
+    // fresh settings start from the defaults and are never written, the file keeps what it had.
+    public SettingsFile(string? location = null, bool fresh = false)
     {
+        IsFresh = fresh;
         if (location != null)
         {
             Location = Path.GetFullPath(location);
@@ -29,9 +31,13 @@ public sealed class SettingsFile
     }
 
     public string Location { get; }
+    public bool IsFresh { get; }
 
     public Settings Load()
     {
+        if (IsFresh)
+            return new Settings();
+
         try
         {
             if (File.Exists(Location))
@@ -59,6 +65,9 @@ public sealed class SettingsFile
     // the settings become bytes on the thread that owns them and only the writing is handed away, chained so the last snapshot is the last written.
     public void SaveLater(Settings settings)
     {
+        if (IsFresh)
+            return;
+
         var bytes = Snapshot(settings);
         if (bytes == null)
             return;
@@ -98,7 +107,7 @@ public sealed class SettingsFile
 
     private void Write(byte[]? bytes)
     {
-        if (bytes == null)
+        if (bytes == null || IsFresh)
             return;
 
         try

@@ -396,6 +396,9 @@
   <data name="SettingRecentFolders" xml:space="preserve">
     <value>Recent folders</value>
   </data>
+  <data name="SettingScanDrives" xml:space="preserve">
+    <value>Scan every drive in the background</value>
+  </data>
   <data name="SettingShowHidden" xml:space="preserve">
     <value>Show hidden items</value>
   </data>

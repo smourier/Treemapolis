@@ -9,6 +9,8 @@ public sealed class GraphicsDevice : InterlockedComObject<ID3D12Device>
     private int _warningCount;
     private const int _maxRecentMessages = 32;
     private readonly ConcurrentQueue<string> _recentMessages = new();
+    private static readonly string[] _runtimeFiles = ["d3d12.dll", "D3D12Core.dll", "d3d12SDKLayers.dll", "d3d10warp.dll", "dxgi.dll"];
+    private ID3D12InfoQueue? _polledQueue;
 
     public GraphicsDevice(bool useWarp, bool debug, bool gpuValidation = false)
     {
@@ -57,16 +59,36 @@ public sealed class GraphicsDevice : InterlockedComObject<ID3D12Device>
         }
         Adapter = adapter;
 
-        ExchangeDisposable(D3D12Functions.D3D12CreateDevice<ID3D12Device>(Adapter.Object, D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_12_0));
         Adapter.Object.GetDesc1(out var desc).ThrowOnError();
+        TraceSystem(desc, debug);
+        ExchangeDisposable(D3D12Functions.D3D12CreateDevice<ID3D12Device>(Adapter.Object, D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_12_0));
+        Application.TraceInfo("the device is created.");
         AdapterName = desc.Description.ToString();
         IsWarp = ((DXGI_ADAPTER_FLAG)desc.Flags).HasFlag(DXGI_ADAPTER_FLAG.DXGI_ADAPTER_FLAG_SOFTWARE);
         Features = new FeatureSupport(this);
 
+        // the message callback needs ID3D12InfoQueue1, which an older debug layer does not have, its messages are then polled.
+        // under a debugger an error also breaks right where it happens, before a driver that did not expect the call can crash.
         if (NativeObject is ID3D12InfoQueue1 infoQueue)
         {
             _handle = GCHandle.Alloc(this, GCHandleType.Weak);
             infoQueue.RegisterMessageCallback(_messageCallback, D3D12_MESSAGE_CALLBACK_FLAGS.D3D12_MESSAGE_CALLBACK_FLAG_NONE, GCHandle.ToIntPtr(_handle), ref _messageCallbackCookie);
+            Application.TraceInfo("debug layer messages come through ID3D12InfoQueue1.");
+        }
+        else if (NativeObject is ID3D12InfoQueue queue)
+        {
+            _polledQueue = queue;
+            Application.TraceInfo("debug layer messages are polled from ID3D12InfoQueue.");
+        }
+        else if (IsDebug)
+        {
+            Application.TraceWarning("the debug layer was asked for but the device has no info queue.");
+        }
+
+        if (Debugger.IsAttached && NativeObject is ID3D12InfoQueue breakQueue)
+        {
+            breakQueue.SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY.D3D12_MESSAGE_SEVERITY_ERROR, true);
+            breakQueue.SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY.D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
         }
 
         DirectQueue = new CommandQueue(this, D3D12_COMMAND_LIST_TYPE.D3D12_COMMAND_LIST_TYPE_DIRECT);
@@ -144,23 +166,72 @@ public sealed class GraphicsDevice : InterlockedComObject<ID3D12Device>
 
     private static void OnMessage(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERITY severity, D3D12_MESSAGE_ID id, PSTR description, nint context)
     {
-        if (GCHandle.FromIntPtr(context).Target is not GraphicsDevice device)
+        if (GCHandle.FromIntPtr(context).Target is GraphicsDevice device)
+        {
+            device.Report(severity, id, description.ToString() ?? string.Empty);
+        }
+    }
+
+    // the stored messages of an older debug layer, reported and cleared, a no op when the callback delivers them.
+    public unsafe void FlushMessages()
+    {
+        var queue = _polledQueue;
+        if (queue == null)
             return;
 
+        var count = queue.GetNumStoredMessages();
+        for (ulong i = 0; i < count; i++)
+        {
+            nuint length = 0;
+            if (queue.GetMessage(i, 0, ref length).IsError || length == 0)
+                continue;
+
+            var buffer = new byte[length];
+            fixed (byte* pointer = buffer)
+            {
+                if (queue.GetMessage(i, (nint)pointer, ref length).IsError)
+                    continue;
+
+                var message = (D3D12_MESSAGE*)pointer;
+                Report(message->Severity, message->ID, Marshal.PtrToStringAnsi(message->pDescription) ?? string.Empty);
+            }
+        }
+        queue.ClearStoredMessages();
+    }
+
+    private void Report(D3D12_MESSAGE_SEVERITY severity, D3D12_MESSAGE_ID id, string description)
+    {
         switch (severity)
         {
             case D3D12_MESSAGE_SEVERITY.D3D12_MESSAGE_SEVERITY_CORRUPTION:
             case D3D12_MESSAGE_SEVERITY.D3D12_MESSAGE_SEVERITY_ERROR:
-                Interlocked.Increment(ref device._errorCount);
-                device.Remember(description.ToString());
+                Interlocked.Increment(ref _errorCount);
+                Remember(description);
                 Application.TraceError($"{description} [#{(int)id} {id}]");
                 break;
 
             case D3D12_MESSAGE_SEVERITY.D3D12_MESSAGE_SEVERITY_WARNING:
-                Interlocked.Increment(ref device._warningCount);
-                device.Remember(description.ToString());
+                Interlocked.Increment(ref _warningCount);
+                Remember(description);
                 Application.TraceWarning($"{description} [#{(int)id} {id}]");
                 break;
+
+            default:
+                Application.TraceVerbose($"{description} [#{(int)id} {id}]");
+                break;
+        }
+    }
+
+    // what a report from another machine needs first: the system, the adapter and the versions of the runtime files that were loaded.
+    private static void TraceSystem(in DXGI_ADAPTER_DESC1 desc, bool debug)
+    {
+        Application.TraceInfo(string.Create(CultureInfo.InvariantCulture, $"{Environment.OSVersion.VersionString}, {RuntimeInformation.OSArchitecture}, process {RuntimeInformation.ProcessArchitecture}, debug layer asked {debug}"));
+        Application.TraceInfo(string.Create(CultureInfo.InvariantCulture, $"adapter '{desc.Description}' vendor 0x{desc.VendorId:X4} device 0x{desc.DeviceId:X4} flags {(DXGI_ADAPTER_FLAG)desc.Flags} video memory {desc.DedicatedVideoMemory >> 20} MB shared {desc.SharedSystemMemory >> 20} MB"));
+        foreach (var name in _runtimeFiles)
+        {
+            var path = Path.Combine(Environment.SystemDirectory, name);
+            var version = File.Exists(path) ? FileVersionInfo.GetVersionInfo(path).FileVersion : "missing";
+            Application.TraceInfo($"{path} {version}");
         }
     }
 

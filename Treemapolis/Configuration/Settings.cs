@@ -15,7 +15,7 @@ public sealed class Settings
 
     public bool VSync { get; set; } = true;
     public bool ShowStatus { get; set; } = true;
-    public bool ShowPerformance { get; set; } = true;
+    public bool ShowPerformance { get; set; }
     public bool ShowLegend { get; set; } = true;
     public bool ShowLabels { get; set; } = true;
     public bool ShowThumbnails { get; set; } = true;
@@ -38,10 +38,14 @@ public sealed class Settings
     // what changes on disk, and drives coming and going, show on the map as they happen.
     public bool WatchChanges { get; set; } = true;
 
+    // This PC scans its local drives whole in the background, read from the master file table when elevated.
+    public bool ScanDrives { get; set; } = true;
+
     // the height of the buildings as a percentage of their natural height.
     public double Elevation { get; set; } = DefaultElevation;
 
-    public const double DefaultElevation = 100;
+    public const double MaximumElevation = 1000;
+    public const double DefaultElevation = MaximumElevation;
 
     // where the sun's light goes on the ground in degrees, zero towards the default camera, a little aside so the fronts are not all in shade.
     public double SunAngle { get; set; } = DefaultSunAngle;

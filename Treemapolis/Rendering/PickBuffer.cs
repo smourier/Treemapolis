@@ -7,6 +7,7 @@ public sealed class PickBuffer : IDisposable
     private const int _maxPerFrame = 8;
     private const uint _texelSize = sizeof(uint);
 
+    private readonly D3D12_PLACED_SUBRESOURCE_FOOTPRINT[] _texelFootprints = new D3D12_PLACED_SUBRESOURCE_FOOTPRINT[_maxPerFrame];
     private readonly ReadbackBuffer[] _readbacks;
     private readonly PickRequest[][] _recorded;
     private readonly bool[][] _recordedInside;
@@ -17,13 +18,20 @@ public sealed class PickBuffer : IDisposable
     public PickBuffer(GraphicsDevice device, uint frameSlots)
     {
         ArgumentNullException.ThrowIfNull(device);
+        var end = 0ul;
+        for (var i = 0; i < _maxPerFrame; i++)
+        {
+            _texelFootprints[i] = Resource.CreateBufferFootprint(end, DXGI_FORMAT.DXGI_FORMAT_R32_UINT, 1, 1, _texelSize);
+            end = Resource.GetFootprintEnd(_texelFootprints[i]);
+        }
+
         _readbacks = new ReadbackBuffer[frameSlots];
         _recorded = new PickRequest[frameSlots][];
         _recordedInside = new bool[frameSlots][];
         _recordedCounts = new int[frameSlots];
         for (var i = 0; i < frameSlots; i++)
         {
-            _readbacks[i] = new ReadbackBuffer(device, _maxPerFrame * _texelSize);
+            _readbacks[i] = new ReadbackBuffer(device, end);
             _recorded[i] = new PickRequest[_maxPerFrame];
             _recordedInside[i] = new bool[_maxPerFrame];
         }
@@ -47,7 +55,6 @@ public sealed class PickBuffer : IDisposable
         }
     }
 
-    // only the latest hover position matters, an older one would describe where the cursor was.
     public void Request(PickRequest request)
     {
         if (request.Action == PickAction.Hover)
@@ -88,8 +95,7 @@ public sealed class PickBuffer : IDisposable
             }
 
             list.Transition(entries, D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_COPY_SOURCE);
-
-            list.CopyTexelToBuffer(entries, readback, (uint)request.X, (uint)request.Y, (ulong)count * _texelSize, DXGI_FORMAT.DXGI_FORMAT_R32_UINT, _texelSize);
+            list.CopyTexelToBuffer(entries, readback, (uint)request.X, (uint)request.Y, _texelFootprints[count]);
             _recorded[slot][count++] = request;
         }
 
@@ -104,12 +110,17 @@ public sealed class PickBuffer : IDisposable
         if (count == 0)
             return;
 
-        Span<uint> texels = stackalloc uint[_maxPerFrame];
-        _readbacks[slot].Read(texels[..count]);
+        Span<uint> texel = stackalloc uint[1];
         for (var i = 0; i < count; i++)
         {
             var request = _recorded[slot][i];
-            var entry = !_recordedInside[slot][i] || texels[i] == 0 ? Entry.None : (int)texels[i] - 1;
+            texel[0] = 0;
+            if (_recordedInside[slot][i])
+            {
+                _readbacks[slot].Read(texel, _texelFootprints[i].Offset);
+            }
+
+            var entry = texel[0] == 0 ? Entry.None : (int)texel[0] - 1;
             results.Add(new PickResult(request, entry));
         }
         _recordedCounts[slot] = 0;

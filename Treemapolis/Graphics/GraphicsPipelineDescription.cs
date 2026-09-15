@@ -22,8 +22,17 @@ public sealed class GraphicsPipelineDescription
     public uint SampleCount { get; init; } = 1;
     public D3D12_PRIMITIVE_TOPOLOGY_TYPE Topology { get; init; } = D3D12_PRIMITIVE_TOPOLOGY_TYPE.D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 
+    // every field holds a valid value, the defaults of CD3DX12, even those of states that are off,
+    // a software renderer may read them anyway and a zero is not a valid stencil operation, comparison or blend factor.
     public D3D12_GRAPHICS_PIPELINE_STATE_DESC ToDesc()
     {
+        var stencil = new D3D12_DEPTH_STENCILOP_DESC
+        {
+            StencilFailOp = D3D12_STENCIL_OP.D3D12_STENCIL_OP_KEEP,
+            StencilDepthFailOp = D3D12_STENCIL_OP.D3D12_STENCIL_OP_KEEP,
+            StencilPassOp = D3D12_STENCIL_OP.D3D12_STENCIL_OP_KEEP,
+            StencilFunc = D3D12_COMPARISON_FUNC.D3D12_COMPARISON_FUNC_ALWAYS,
+        };
         var desc = new D3D12_GRAPHICS_PIPELINE_STATE_DESC
         {
             pRootSignature = RootSignature.NativePointer,
@@ -41,12 +50,17 @@ public sealed class GraphicsPipelineDescription
                 DepthClipEnable = true,
                 DepthBias = DepthBias,
                 SlopeScaledDepthBias = SlopeScaledDepthBias,
+                ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE.D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF,
             },
             DepthStencilState = new D3D12_DEPTH_STENCIL_DESC
             {
                 DepthEnable = DepthTest,
                 DepthWriteMask = DepthWrite ? D3D12_DEPTH_WRITE_MASK.D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK.D3D12_DEPTH_WRITE_MASK_ZERO,
                 DepthFunc = DepthFunction,
+                StencilReadMask = byte.MaxValue,
+                StencilWriteMask = byte.MaxValue,
+                FrontFace = stencil,
+                BackFace = stencil,
             },
         };
 
@@ -57,9 +71,13 @@ public sealed class GraphicsPipelineDescription
 
         // only the color target blends, the entry target next to it is an integer format that cannot.
         desc.BlendState.IndependentBlendEnable = (AlphaBlend || Lighten) && RenderTargetFormats.Count > 1;
-        for (var i = 0; i < RenderTargetFormats.Count; i++)
+        for (var i = 0; i < Constants.D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
         {
-            desc.RTVFormats[i] = RenderTargetFormats[i];
+            if (i < RenderTargetFormats.Count)
+            {
+                desc.RTVFormats[i] = RenderTargetFormats[i];
+            }
+
             var blend = new D3D12_RENDER_TARGET_BLEND_DESC
             {
                 SrcBlend = D3D12_BLEND.D3D12_BLEND_ONE,
@@ -72,16 +90,21 @@ public sealed class GraphicsPipelineDescription
                 RenderTargetWriteMask = (byte)D3D12_COLOR_WRITE_ENABLE.D3D12_COLOR_WRITE_ENABLE_ALL,
             };
 
-            if (Lighten)
+            // the other targets keep the default blend and are only masked, the older WARP crashes on a max blend given to an integer target.
+            var used = i < RenderTargetFormats.Count;
+            if (used && Lighten && i == 0)
             {
-                blend.BlendEnable = i == 0;
+                blend.BlendEnable = true;
                 blend.DestBlend = D3D12_BLEND.D3D12_BLEND_ONE;
                 blend.DestBlendAlpha = D3D12_BLEND.D3D12_BLEND_ONE;
                 blend.BlendOp = D3D12_BLEND_OP.D3D12_BLEND_OP_MAX;
                 blend.BlendOpAlpha = D3D12_BLEND_OP.D3D12_BLEND_OP_MAX;
-                blend.RenderTargetWriteMask = i == 0 ? blend.RenderTargetWriteMask : (byte)0;
             }
-            else if (AlphaBlend && i == 0)
+            else if (used && Lighten)
+            {
+                blend.RenderTargetWriteMask = 0;
+            }
+            else if (used && AlphaBlend && i == 0)
             {
                 blend.BlendEnable = true;
                 blend.DestBlend = D3D12_BLEND.D3D12_BLEND_INV_SRC_ALPHA;

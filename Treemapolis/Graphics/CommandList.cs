@@ -89,29 +89,27 @@ public sealed class CommandList : InterlockedComObject<ID3D12GraphicsCommandList
     public void ClearRenderTarget(DescriptorHandle view, Vector4 color) => NativeObject.ClearRenderTargetView(view.Cpu, [color.X, color.Y, color.Z, color.W], 0, 0);
     public void ClearDepth(DescriptorHandle view, float depth) => NativeObject.ClearDepthStencilView(view.Cpu, D3D12_CLEAR_FLAGS.D3D12_CLEAR_FLAG_DEPTH, depth, 0, 0, 0);
 
-    public unsafe void CopyTextureToBuffer(Resource source, ReadbackBuffer destination, in D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint)
+    public void CopyTextureToBuffer(Resource source, ReadbackBuffer destination, in D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint) => CopyToBuffer(source, destination, footprint, null);
+
+    // the footprint comes from Resource.CreateBufferFootprint, an older runtime refuses one that is not aligned.
+    public void CopyTexelToBuffer(Resource source, ReadbackBuffer destination, uint x, uint y, in D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint) =>
+        CopyToBuffer(source, destination, footprint, new D3D12_BOX { left = x, top = y, front = 0, right = x + 1, bottom = y + 1, back = 1 });
+
+    private unsafe void CopyToBuffer(Resource source, ReadbackBuffer destination, in D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint, D3D12_BOX? box)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(destination);
         var dst = new D3D12_TEXTURE_COPY_LOCATION { pResource = destination.NativePointer, Type = D3D12_TEXTURE_COPY_TYPE.D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT };
         dst.Anonymous.PlacedFootprint = footprint;
         var src = new D3D12_TEXTURE_COPY_LOCATION { pResource = source.NativePointer, Type = D3D12_TEXTURE_COPY_TYPE.D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX };
-        NativeObject.CopyTextureRegion(dst, 0, 0, 0, src, 0);
-    }
-
-    public unsafe void CopyTexelToBuffer(Resource source, ReadbackBuffer destination, uint x, uint y, ulong offset, DXGI_FORMAT format, uint texelSize)
-    {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(destination);
-        var dst = new D3D12_TEXTURE_COPY_LOCATION { pResource = destination.NativePointer, Type = D3D12_TEXTURE_COPY_TYPE.D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT };
-        dst.Anonymous.PlacedFootprint = new D3D12_PLACED_SUBRESOURCE_FOOTPRINT
+        if (box is D3D12_BOX region)
         {
-            Offset = offset,
-            Footprint = new D3D12_SUBRESOURCE_FOOTPRINT { Format = format, Width = 1, Height = 1, Depth = 1, RowPitch = texelSize },
-        };
-        var src = new D3D12_TEXTURE_COPY_LOCATION { pResource = source.NativePointer, Type = D3D12_TEXTURE_COPY_TYPE.D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX };
-        var box = new D3D12_BOX { left = x, top = y, front = 0, right = x + 1, bottom = y + 1, back = 1 };
-        NativeObject.CopyTextureRegion(dst, 0, 0, 0, src, (nint)(&box));
+            NativeObject.CopyTextureRegion(dst, 0, 0, 0, src, (nint)(&region));
+        }
+        else
+        {
+            NativeObject.CopyTextureRegion(dst, 0, 0, 0, src, 0);
+        }
     }
 
     protected override void Dispose(bool disposing)

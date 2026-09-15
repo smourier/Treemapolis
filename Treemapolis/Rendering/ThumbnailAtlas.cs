@@ -20,7 +20,8 @@ public sealed class ThumbnailAtlas : IDisposable
     private readonly long[] _cellSeen = new long[CellCount];
     private readonly Dictionary<int, int> _entryCells = [];
     private readonly Queue<Thumbnail> _pending = new();
-    private readonly int _bytesPerThumbnail;
+    private readonly D3D12_PLACED_SUBRESOURCE_FOOTPRINT[] _levelFootprints = new D3D12_PLACED_SUBRESOURCE_FOOTPRINT[ThumbnailLoader.LevelCount];
+    private readonly ulong _bytesPerThumbnail;
     private NamespaceTree? _tree;
     private long _frame;
 
@@ -39,16 +40,19 @@ public sealed class ThumbnailAtlas : IDisposable
             ShaderResource = true,
         });
 
+        var end = 0ul;
         for (var level = 0; level < ThumbnailLoader.LevelCount; level++)
         {
-            var side = ThumbnailLoader.CellSize >> level;
-            _bytesPerThumbnail += side * side * _bytesPerPixel;
+            var side = (uint)(ThumbnailLoader.CellSize >> level);
+            _levelFootprints[level] = Resource.CreateBufferFootprint(end, _format, side, side, _bytesPerPixel);
+            end = Resource.GetFootprintEnd(_levelFootprints[level]);
         }
+        _bytesPerThumbnail = Resource.AlignBufferOffset(end);
 
         _uploads = new UploadBuffer[frameSlots];
         for (var i = 0; i < frameSlots; i++)
         {
-            _uploads[i] = new UploadBuffer(device, (ulong)(_bytesPerThumbnail * _maximumUploadsPerFrame));
+            _uploads[i] = new UploadBuffer(device, _bytesPerThumbnail * _maximumUploadsPerFrame);
         }
 
         CellExtents = new UploadBuffer(device, (ulong)(CellCount * Unsafe.SizeOf<Vector2>()));
@@ -140,7 +144,7 @@ public sealed class ThumbnailAtlas : IDisposable
             }
 
             list.Transition(Texture, D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_COPY_DEST);
-            CopyCell(list, upload, (ulong)(uploaded * _bytesPerThumbnail), thumbnail, cell);
+            CopyCell(list, upload, (ulong)uploaded * _bytesPerThumbnail, thumbnail, cell);
             CellExtents.Write(new Vector2(thumbnail.Width / (float)ThumbnailLoader.CellSize, thumbnail.Height / (float)ThumbnailLoader.CellSize), (ulong)(cell * Unsafe.SizeOf<Vector2>()));
             _cellEntries[cell] = thumbnail.Entry;
             _cellSeen[cell] = _frame;
@@ -177,20 +181,22 @@ public sealed class ThumbnailAtlas : IDisposable
         var index = cell % CellsPerSlice;
         for (var level = 0; level < ThumbnailLoader.LevelCount; level++)
         {
-            var side = (uint)(ThumbnailLoader.CellSize >> level);
+            // a row of the upload can be wider than a row of the picture, its pitch is aligned.
+            var footprint = _levelFootprints[level];
+            footprint.Offset += offset;
+            var side = footprint.Footprint.Width;
+            var rowBytes = (int)(side * _bytesPerPixel);
             var pixels = thumbnail.Levels[level];
-            upload.Write<byte>(pixels, offset);
+            for (var y = 0; y < side; y++)
+            {
+                upload.Write<byte>(pixels.AsSpan(y * rowBytes, rowBytes), footprint.Offset + (ulong)y * footprint.Footprint.RowPitch);
+            }
 
             var source = new D3D12_TEXTURE_COPY_LOCATION { pResource = upload.NativePointer, Type = D3D12_TEXTURE_COPY_TYPE.D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT };
-            source.Anonymous.PlacedFootprint = new D3D12_PLACED_SUBRESOURCE_FOOTPRINT
-            {
-                Offset = offset,
-                Footprint = new D3D12_SUBRESOURCE_FOOTPRINT { Format = _format, Width = side, Height = side, Depth = 1, RowPitch = side * _bytesPerPixel },
-            };
+            source.Anonymous.PlacedFootprint = footprint;
             var destination = new D3D12_TEXTURE_COPY_LOCATION { pResource = Texture.NativePointer, Type = D3D12_TEXTURE_COPY_TYPE.D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX };
             destination.Anonymous.SubresourceIndex = (uint)level + slice * ThumbnailLoader.LevelCount;
             list.NativeObject.CopyTextureRegion(destination, (uint)(index % CellsPerRow) * side, (uint)(index / CellsPerRow) * side, 0, source, 0);
-            offset += (ulong)pixels.Length;
         }
     }
 

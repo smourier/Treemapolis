@@ -55,7 +55,7 @@ public sealed class SceneRenderer : IDisposable
     private readonly Shader _edgesVertex;
     private readonly Shader _edgesPixel;
     private readonly RootSignature _edgesRootSignature;
-    private PipelineState _edgesPipeline;
+    private PipelineState? _edgesPipeline;
     private readonly RootSignature _postRootSignature;
     private readonly PipelineState _postPipeline;
     private readonly D3D12_CPU_DESCRIPTOR_HANDLE[] _postTargets = new D3D12_CPU_DESCRIPTOR_HANDLE[1];
@@ -122,7 +122,6 @@ public sealed class SceneRenderer : IDisposable
         _edgesVertex = new Shader("Edges.vs");
         _edgesPixel = new Shader("Edges.ps");
         _edgesRootSignature = new RootSignature(device, _edgesVertex);
-        _edgesPipeline = CreateEdgesPipeline(1);
         (_resolveRootSignature, _resolvePipeline) = CreateCompute(device, "EntryResolve.cs");
         SampleCounts = FeatureSupport.GetSampleCounts(device, [DXGI_FORMAT.DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, _entryFormat, _depthFormat]);
 
@@ -297,6 +296,7 @@ public sealed class SceneRenderer : IDisposable
 
         var native = list.NativeObject;
         list.SetDescriptorHeap(_heaps.ShaderResources);
+
         Timer.Begin(list, _uploadScope);
         var layoutUploaded = UploadPendingLayout(list, time);
         var thumbnailsUploaded = Thumbnails.Record(list, slot);
@@ -448,12 +448,10 @@ public sealed class SceneRenderer : IDisposable
             native.SetGraphicsRootDescriptorTable(7, _shadowMap.ShaderResourceView.Gpu);
             native.ExecuteIndirect(_drawSignature.NativeObject, 1, buffers.Camera.Arguments.NativeObject, 0, null, 0);
 
-            // drawn as lines, the edges of the same visible blocks go over them from the second set of draw arguments.
             var lineEffect = LineEffectOf(_effect);
             if (lineEffect != 0)
             {
                 native.SetGraphicsRootSignature(_edgesRootSignature.NativeObject);
-                // made the first time a line effect is chosen, a driver that cannot build it then fails only that effect.
                 _edgesPipeline ??= CreateEdgesPipeline(SampleCount);
                 native.SetPipelineState(_edgesPipeline.NativeObject);
                 native.SetGraphicsRootConstantBufferView(0, frameAddress);
@@ -472,6 +470,7 @@ public sealed class SceneRenderer : IDisposable
             list.Transition(buffers.Current, D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
             Labels.Render(list, slot, frameAddress, buffers.Current);
         }
+
         Island.Render(list, slot, constants, _depth.DepthStencilView);
 
         if (_color != null && _resolved != null)
@@ -562,8 +561,8 @@ public sealed class SceneRenderer : IDisposable
         _blocksPipeline.Dispose();
         _groundPipeline.Dispose();
         (_blocksPipeline, _groundPipeline) = CreateScenePipelines(chosen);
-        _edgesPipeline.Dispose();
-        _edgesPipeline = CreateEdgesPipeline(chosen);
+        _edgesPipeline?.Dispose();
+        _edgesPipeline = null;
         Labels.SetSampleCount(chosen);
         Island.SetSampleCount(chosen);
         SampleCount = chosen;
@@ -942,7 +941,7 @@ public sealed class SceneRenderer : IDisposable
         _frameConstants.Dispose();
         _shadowConstants.Dispose();
         _postPipeline.Dispose();
-        _edgesPipeline.Dispose();
+        _edgesPipeline?.Dispose();
         _edgesRootSignature.Dispose();
         _postRootSignature.Dispose();
         _shadowPipeline.Dispose();
