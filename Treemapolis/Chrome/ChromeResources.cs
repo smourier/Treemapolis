@@ -11,6 +11,8 @@ public sealed class ChromeResources : IDisposable
     private const uint _islandText = 0xFFF2F5F8;
     private const uint _islandDetail = 0xFFA9B6C4;
     private const string _widthSample = @"C:\Windows\System32\drivers\etc 0123456789";
+    private const float _menuRadius = 6;
+    private const float _menuShadow = 1;
 
     public const float AppIconSize = 16;
 
@@ -114,6 +116,18 @@ public sealed class ChromeResources : IDisposable
     public IComObject<ID2D1Brush> ThumbBrush { get; }
 
     public void FillHover(IComObject<ID2D1DeviceContext> context, in D2D_RECT_F rect, float opacity, float radius = 0) => FillFaded(context, HoverBrush, rect, opacity, radius);
+
+    public void DrawMenuPanel(IComObject<ID2D1DeviceContext> context, in D2D_RECT_F bounds)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        var native = context.Object;
+        var radius = _menuRadius * Scale;
+        var shadow = _menuShadow * Scale;
+        var shadowRect = new D2D_RECT_F { left = bounds.left + shadow, top = bounds.top + shadow, right = bounds.right + shadow, bottom = bounds.bottom + shadow };
+        native.FillRoundedRectangle(new D2D1_ROUNDED_RECT { rect = shadowRect, radiusX = radius, radiusY = radius }, MenuShadowBrush.Object);
+        native.FillRoundedRectangle(new D2D1_ROUNDED_RECT { rect = bounds, radiusX = radius, radiusY = radius }, MenuBackgroundBrush.Object);
+        native.DrawRoundedRectangle(new D2D1_ROUNDED_RECT { rect = bounds, radiusX = radius, radiusY = radius }, LineBrush.Object, 1, null);
+    }
 
     public static void FillFaded(IComObject<ID2D1DeviceContext> context, IComObject<ID2D1Brush> brush, in D2D_RECT_F rect, float opacity, float radius = 0)
     {

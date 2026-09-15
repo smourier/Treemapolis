@@ -7,6 +7,10 @@ namespace Treemapolis.Shell;
 public sealed class ShellCommands(HWND owner)
 {
     private const CMF _contextMenuFlags = CMF.CMF_EXPLORE | CMF.CMF_EXTENDEDVERBS | CMF.CMF_CANRENAME;
+    private const string _uncPrefix = @"\\";
+    private const string _namespacePrefix = "::";
+    private const string _shellPrefix = "shell:";
+    private static readonly Guid _fileOpenDialogClassId = new("DC1C5A9C-E88A-4DDE-A5A1-60F82A20AEF7");
 
     // an entry scanned from disk has no id list of its own, it is bound back through its path.
     public static unsafe ShellItem? CreateItem(NamespaceTree tree, int index)
@@ -158,6 +162,45 @@ public sealed class ShellCommands(HWND owner)
         var path = item.GetDisplayName(SIGDN.SIGDN_FILESYSPATH, false);
         var name = path != null ? Path.GetFileName(path) : item.GetDisplayName(SIGDN.SIGDN_NORMALDISPLAY, false);
         return new StartLocation { IdList = parentIdList, SelectName = name };
+    }
+
+    // the shell's own folder picker, modal on the window. any folder of the namespace can be picked, This PC or a library included.
+    public unsafe byte[]? BrowseForFolder(string title)
+    {
+        ArgumentNullException.ThrowIfNull(title);
+        using var dialog = DirectN.Extensions.Com.ComObject.CoCreate<IFileOpenDialog>(_fileOpenDialogClassId, CLSCTX.CLSCTX_INPROC_SERVER, throwOnError: false);
+        if (dialog == null)
+            return null;
+
+        dialog.Object.SetOptions(FILEOPENDIALOGOPTIONS.FOS_PICKFOLDERS | FILEOPENDIALOGOPTIONS.FOS_ALLNONSTORAGEITEMS).ThrowOnError();
+        fixed (char* text = title)
+        {
+            dialog.Object.SetTitle(new PWSTR(text)).ThrowOnError();
+        }
+
+        // cancelling is an error code too, and nothing to report.
+        if (dialog.Object.Show(owner).IsError || dialog.Object.GetResult(out var result).IsError)
+            return null;
+
+        using var item = ShellItem.FromObject(result);
+        return item?.GetIdListAsByteArray(false);
+    }
+
+    // a location typed by hand, environment variables expanded, quotes and a drive given without its separator allowed.
+    public static string? AsLocation(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        var location = Environment.ExpandEnvironmentVariables(text.Trim().Trim('"'));
+        if (location.Length == 2 && char.IsAsciiLetter(location[0]) && location[1] == Path.VolumeSeparatorChar)
+        {
+            location += Path.DirectorySeparatorChar;
+        }
+
+        var isLocation = Path.IsPathFullyQualified(location)
+            || location.StartsWith(_uncPrefix, StringComparison.Ordinal)
+            || location.StartsWith(_namespacePrefix, StringComparison.Ordinal)
+            || location.StartsWith(_shellPrefix, StringComparison.OrdinalIgnoreCase);
+        return isLocation ? location : null;
     }
 
     public static byte[]? GetParentIdList(NamespaceTree tree, int index)

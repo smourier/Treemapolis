@@ -4,6 +4,10 @@ namespace Treemapolis.Namespace;
 // readers index up to Count without one and may see rollups a batch behind, never torn memory.
 public sealed class NamespaceTree
 {
+    private const int _cancellationMask = 0xFFFF;
+
+    private static readonly Comparer<FolderMatch> _worstMatchFirst = Comparer<FolderMatch>.Create((left, right) => left.Rank != right.Rank ? right.Rank.CompareTo(left.Rank) : left.Size.CompareTo(right.Size));
+
     private readonly Lock _lock = new();
     private readonly ChunkedList<Entry> _entries = new();
     private readonly ChunkedList<char> _names = new();
@@ -42,6 +46,112 @@ public sealed class NamespaceTree
                 return child;
         }
         return Entry.None;
+    }
+
+    public List<int> GetSubfolders(int parent, bool includeHidden)
+    {
+        var folders = new List<int>();
+        if (parent < 0 || parent >= Count)
+            return folders;
+
+        for (var child = _entries[parent].FirstChild; child != Entry.None; child = _entries[child].NextSibling)
+        {
+            if (IsFolderShown(child, includeHidden))
+            {
+                folders.Add(child);
+            }
+        }
+
+        folders.Sort((left, right) => _entries[right].TotalSize.CompareTo(_entries[left].TotalSize));
+        return folders;
+    }
+
+    public List<int> FindFolders(string text, int limit, bool includeHidden, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        var found = new List<int>();
+        if (text.Length == 0 || limit <= 0)
+            return found;
+
+        var best = new PriorityQueue<int, FolderMatch>(limit + 1, _worstMatchFirst);
+        var count = Count;
+        for (var index = 0; index < count; index++)
+        {
+            if ((index & _cancellationMask) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            if (!IsFolderShown(index, includeHidden))
+                continue;
+
+            var name = GetName(index);
+            var at = name.IndexOf(text, StringComparison.OrdinalIgnoreCase);
+            if (at < 0)
+                continue;
+
+            var rank = name.Length == text.Length ? 0 : at == 0 ? 1 : !char.IsLetterOrDigit(name[at - 1]) ? 2 : 3;
+            var match = new FolderMatch(rank, _entries[index].TotalSize);
+            if (best.Count < limit)
+            {
+                best.Enqueue(index, match);
+            }
+            else if (best.TryPeek(out _, out var worst) && _worstMatchFirst.Compare(match, worst) > 0)
+            {
+                best.EnqueueDequeue(index, match);
+            }
+        }
+
+        while (best.TryDequeue(out var index, out _))
+        {
+            found.Add(index);
+        }
+        found.Reverse();
+        return found;
+    }
+
+    public int FindFileSystemPath(string path)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        var target = Path.TrimEndingDirectorySeparator(path);
+        var start = Entry.None;
+        var startLength = -1;
+        var count = Count;
+        for (var index = 0; index < count; index++)
+        {
+            if (_entries[index].ShellNode == Entry.None || (_entries[index].Flags & EntryFlags.Removed) != 0)
+                continue;
+
+            var root = GetShellNode(index)?.FileSystemPath;
+            if (root == null)
+                continue;
+
+            root = Path.TrimEndingDirectorySeparator(root);
+            var below = target.Length == root.Length ? target.Equals(root, StringComparison.OrdinalIgnoreCase) : target.Length > root.Length && target.StartsWith(root, StringComparison.OrdinalIgnoreCase) && target[root.Length] == Path.DirectorySeparatorChar;
+            if (below && root.Length > startLength)
+            {
+                start = index;
+                startLength = root.Length;
+            }
+        }
+
+        if (start == Entry.None)
+            return Entry.None;
+
+        var current = start;
+        foreach (var name in target[startLength..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = FindChild(current, name);
+            if (current == Entry.None)
+                return Entry.None;
+        }
+        return current;
+    }
+
+    private bool IsFolderShown(int index, bool includeHidden)
+    {
+        ref readonly var entry = ref _entries[index];
+        return entry.IsContainer && (entry.Flags & EntryFlags.Removed) == 0 && (includeHidden || (entry.Flags & EntryFlags.Hidden) == 0);
     }
 
     public void MarkChanged(int index, ChangeKind kind)
@@ -105,7 +215,6 @@ public sealed class NamespaceTree
         return node == Entry.None ? null : Volatile.Read(ref _shellNodes)[node];
     }
 
-    // the file system path of an item, rebuilt from the nearest ancestor that starts a file system subtree.
     public string? GetFileSystemPath(int index)
     {
         var names = new List<int>();

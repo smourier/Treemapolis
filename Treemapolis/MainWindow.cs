@@ -36,6 +36,9 @@ public sealed class MainWindow : Window
     private const double _loadingDelaySeconds = 0.25;
     private const float _islandScrollStep = 40;
     private const float _captionTooltipGap = 4;
+    private const float _pickerWidth = 380;
+    private const float _jumpListWidth = 600;
+    private const int _jumpListLimit = 200;
     private static readonly int[] _thumbnailPixelChoices = [16, 24, 40, 64, 96, 128, 192];
     private static readonly bool _backdropSupported = OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22621);
     private static readonly bool _frameAttributesSupported = OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000);
@@ -67,6 +70,8 @@ public sealed class MainWindow : Window
     private bool _restoringLastLocation;
     private readonly LegendPanel _legendPanel = new();
     private readonly SettingsMenu _menu = new();
+    private readonly FolderPicker _picker = new();
+    private readonly FolderWheel _wheel = new();
     private readonly ThumbnailLoader _thumbnails;
     private readonly HashSet<int> _requestedThumbnails = [];
     private readonly PlacesProvider _places;
@@ -137,6 +142,16 @@ public sealed class MainWindow : Window
         _titleBar.Pressed = OnCaptionButton;
         _titleBar.IsElevated = Environment.IsPrivilegedProcess;
         _menu.Changed = OnSettingChanged;
+        _titleBar.CrumbPressed = OnCrumbPressed;
+        _picker.Chosen = ChooseRow;
+        _picker.Previewed = PreviewFolder;
+        _picker.Updated = () =>
+        {
+            _chromeDirty = true;
+            Invalidate(null, false);
+        };
+        _wheel.Chosen = GoToFolder;
+        _wheel.Previewed = PreviewFolder;
         ApplySettings();
         if (options.Location == null && _settings.LastLocation != null)
         {
@@ -185,6 +200,8 @@ public sealed class MainWindow : Window
     public HudPanel TooltipPanel => _tooltipPanel;
     public LegendPanel LegendPanel => _legendPanel;
     public SettingsMenu Menu => _menu;
+    public FolderPicker Picker => _picker;
+    public FolderWheel Wheel => _wheel;
     public Settings Settings => _settings;
     public string SettingsLocation => _settingsFile.Location;
     public Palette Palette => _palette;
@@ -724,7 +741,9 @@ public sealed class MainWindow : Window
             var legend = _legendPanel.Measure(resources);
             _legendPanel.Render(context, resources, new D2D_POINT_2F(bounds.right - margin - legend.width, bounds.bottom - margin - legend.height));
             RenderCaptionTooltip(context, resources, bounds);
+            _wheel.Render(context, resources);
             _menu.Render(context, resources);
+            _picker.Render(context, resources);
         }, readBack);
         _chromeAnimating = resources.Animating;
         return pixels;
@@ -733,7 +752,7 @@ public sealed class MainWindow : Window
     // a caption button says what it does once the pointer has rested on it, under the button and inside the window.
     private void RenderCaptionTooltip(IComObject<ID2D1DeviceContext> context, ChromeResources resources, D2D_RECT_F bounds)
     {
-        var text = _menu.IsOpen ? null : _titleBar.TooltipText;
+        var text = OpenPopup != null ? null : _titleBar.TooltipText;
         if (text != _captionTooltipText)
         {
             _captionTooltipText = text;
@@ -1312,6 +1331,10 @@ public sealed class MainWindow : Window
             case CaptionButton.Settings:
                 OpenSettingsMenu();
                 break;
+
+            case CaptionButton.Search:
+                OpenJumpList();
+                break;
         }
         Invalidate(null, false);
     }
@@ -1367,7 +1390,6 @@ public sealed class MainWindow : Window
         if (root >= 0)
         {
             // where the dive went, from the scanned root down to the folder the map is laid out from.
-            var title = new StringBuilder();
             var mapRoot = _layout.MapRoot;
             var crumbs = new List<int>();
             for (var current = mapRoot >= 0 && mapRoot < tree.Count ? mapRoot : root; current != Entry.None && current != root; current = tree[current].Parent)
@@ -1375,18 +1397,14 @@ public sealed class MainWindow : Window
                 crumbs.Add(current);
             }
 
-            title.Append(tree.GetName(root));
+            var path = new List<Crumb>(crumbs.Count + 1) { new(root, tree.GetName(root).ToString()) };
             for (var i = crumbs.Count - 1; i >= 0; i--)
             {
-                title.Append(Res.HudBreadcrumbSeparator).Append(tree.GetName(crumbs[i]));
+                path.Add(new Crumb(crumbs[i], tree.GetName(crumbs[i]).ToString()));
             }
 
             _titleBar.UpEnabled = true;
-            if (_titleBar.Title != title.ToString())
-            {
-                _titleBar.Title = title.ToString();
-                _chromeDirty = true;
-            }
+            _chromeDirty |= _titleBar.SetCrumbs(path);
 
             if (crumbs.Count > 0)
             {
@@ -1645,7 +1663,7 @@ public sealed class MainWindow : Window
                 if (OnChromeMouseDown(lParam))
                     return new();
 
-                if (!_menu.IsOpen && PressIslandTile(_renderer.Island.HitTest(ToPoint(lParam).x, ToPoint(lParam).y)))
+                if (OpenPopup == null && PressIslandTile(_renderer.Island.HitTest(ToPoint(lParam).x, ToPoint(lParam).y)))
                     return new();
 
                 Press(MouseButton.Left, lParam);
@@ -1653,7 +1671,7 @@ public sealed class MainWindow : Window
 
             case MessageDecoder.WM_LBUTTONDBLCLK:
                 // double clicking the caption leaves full screen, the way it would maximize or restore a window.
-                if (_isFullScreen && !_menu.IsOpen && _titleBar.HitTest(ToPoint(lParam).x, ToPoint(lParam).y) == TitleBar.HitCaption)
+                if (_isFullScreen && OpenPopup == null && _titleBar.HitTest(ToPoint(lParam).x, ToPoint(lParam).y) == TitleBar.HitCaption)
                 {
                     ToggleFullScreen();
                     return new();
@@ -1672,15 +1690,19 @@ public sealed class MainWindow : Window
                 return new();
 
             case MessageDecoder.WM_RBUTTONDOWN:
-                if (IsOverChrome(ToPoint(lParam)))
+            case MessageDecoder.WM_RBUTTONDBLCLK:
+                if (OnPopupOtherButtonDown(lParam) || IsOverChrome(ToPoint(lParam)))
                     return new();
 
                 Press(MouseButton.Right, lParam);
                 return new();
 
             case MessageDecoder.WM_MBUTTONDOWN:
+            case MessageDecoder.WM_MBUTTONDBLCLK:
+                if (OnPopupOtherButtonDown(lParam) || IsOverChrome(ToPoint(lParam)))
+                    return new();
+
                 Press(MouseButton.Middle, lParam);
-                BeginDrag(DragMode.Pan);
                 return new();
 
             case MessageDecoder.WM_LBUTTONUP:
@@ -1710,11 +1732,11 @@ public sealed class MainWindow : Window
                 return new();
 
             case MessageDecoder.WM_MOUSEWHEEL:
-                if (_menu.IsOpen)
+                if (OpenPopup is { } wheelPopup)
                 {
                     var wheelPoint = ToPoint(lParam);
                     Functions.ScreenToClient(hwnd, ref wheelPoint);
-                    _menu.OnWheel(wheelPoint.x, wheelPoint.y, (short)(wParam.Value >> 16));
+                    wheelPopup.OnWheel(wheelPoint.x, wheelPoint.y, (short)(wParam.Value >> 16));
                     _chromeDirty = true;
                     Invalidate(null, false);
                     return new();
@@ -1776,11 +1798,40 @@ public sealed class MainWindow : Window
                 }
                 break;
 
-            case MessageDecoder.WM_KEYDOWN:
-                if (_menu.IsOpen)
+            case MessageDecoder.WM_CHAR:
+                if (_picker.OnChar((char)wParam.Value))
                 {
-                    _menu.OnKeyDown((VIRTUAL_KEY)wParam.Value);
                     _chromeDirty = true;
+                    Invalidate(null, false);
+                    return new();
+                }
+                break;
+
+            case MessageDecoder.WM_KEYDOWN:
+                if (OpenPopup is { } keyPopup)
+                {
+                    keyPopup.OnKeyDown((VIRTUAL_KEY)wParam.Value);
+                    _chromeDirty = true;
+                    Invalidate(null, false);
+                    return new();
+                }
+
+                if (Functions.GetKeyState((int)VIRTUAL_KEY.VK_CONTROL) < 0 && (VIRTUAL_KEY)wParam.Value is VIRTUAL_KEY.VK_K or VIRTUAL_KEY.VK_F)
+                {
+                    OpenJumpList();
+                    return new();
+                }
+
+                if (Functions.GetKeyState((int)VIRTUAL_KEY.VK_CONTROL) < 0 && (VIRTUAL_KEY)wParam.Value == VIRTUAL_KEY.VK_O)
+                {
+                    BrowseForFolder();
+                    return new();
+                }
+
+                if (WalkDirection((VIRTUAL_KEY)wParam.Value) is { } direction)
+                {
+                    _cameraMovedByUser = true;
+                    _navigator.Walk(direction, _camera.View * _camera.GetProjection(SceneAspectRatio), new Vector2(_swapChain.Width, _swapChain.Height));
                     Invalidate(null, false);
                     return new();
                 }
@@ -1898,7 +1949,9 @@ public sealed class MainWindow : Window
         Close();
     }
 
-    private bool IsOverChrome(POINT point) => _menu.IsOpen || _titleBar.Contains(point.x, point.y);
+    private Control? OpenPopup => _menu.IsOpen ? _menu : _picker.IsOpen ? _picker : _wheel.IsOpen ? _wheel : null;
+
+    private bool IsOverChrome(POINT point) => OpenPopup != null || _titleBar.Contains(point.x, point.y);
 
     private bool OnChromeMouseDown(LPARAM lParam)
     {
@@ -1906,10 +1959,10 @@ public sealed class MainWindow : Window
         if (!IsOverChrome(point))
             return false;
 
-        if (_menu.IsOpen)
+        if (OpenPopup is { } popup)
         {
-            _menu.OnMouseDown(point.x, point.y);
-            if (_menu.IsCapturing)
+            popup.OnMouseDown(point.x, point.y);
+            if (popup.IsCapturing)
             {
                 Functions.SetCapture(Handle);
             }
@@ -1923,14 +1976,253 @@ public sealed class MainWindow : Window
         return true;
     }
 
+    private bool OnPopupOtherButtonDown(LPARAM lParam)
+    {
+        var popup = OpenPopup;
+        if (popup == null)
+            return false;
+
+        var point = ToPoint(lParam);
+        if (popup == _wheel)
+        {
+            _wheel.OnMouseDown(point.x, point.y);
+        }
+        else if (!popup.Contains(point.x, point.y))
+        {
+            CloseMenu();
+        }
+        _chromeDirty = true;
+        Invalidate(null, false);
+        return true;
+    }
+
     private void CloseMenu()
     {
-        if (!_menu.IsOpen)
+        if (OpenPopup == null)
             return;
 
         _menu.Close();
+        _picker.Close();
+        _wheel.Close();
         _chromeDirty = true;
         Invalidate(null, false);
+    }
+
+    private static Vector2? WalkDirection(VIRTUAL_KEY key) => key switch
+    {
+        VIRTUAL_KEY.VK_LEFT => -Vector2.UnitX,
+        VIRTUAL_KEY.VK_RIGHT => Vector2.UnitX,
+        VIRTUAL_KEY.VK_UP => -Vector2.UnitY,
+        VIRTUAL_KEY.VK_DOWN => Vector2.UnitY,
+        _ => null,
+    };
+
+    private void OnCrumbPressed(int index, bool chevron, D2D_RECT_F rect)
+    {
+        var crumbs = _titleBar.Crumbs;
+        if (index >= crumbs.Count)
+            return;
+
+        if (index >= 0 && !chevron)
+        {
+            GoToFolder(crumbs[index].Entry);
+            return;
+        }
+
+        var tree = _explorer.Tree;
+        var includeHidden = _settings.ShowHidden;
+        var width = _pickerWidth * DpiScale;
+        if (index < 0)
+        {
+            var hidden = crumbs.Take(_titleBar.HiddenCrumbCount).Select(crumb => crumb.Entry).ToArray();
+            OpenPicker(Res.FilterPlaceholder, rect, false, width, (filter, _) => DescribeFolders(tree, hidden.Where(entry => Matches(tree, entry, filter)).ToList(), false, Entry.None));
+            return;
+        }
+
+        var parent = crumbs[index].Entry;
+        var current = index + 1 < crumbs.Count ? crumbs[index + 1].Entry : Entry.None;
+        OpenPicker(Res.FilterPlaceholder, rect, false, width, (filter, _) => DescribeFolders(tree, SortByName(tree, tree.GetSubfolders(parent, includeHidden).Where(entry => Matches(tree, entry, filter))), false, current));
+    }
+
+    private static unsafe List<int> SortByName(NamespaceTree tree, IEnumerable<int> entries)
+    {
+        var named = entries.Select(entry => (Entry: entry, Name: tree.GetName(entry).ToString())).ToList();
+        named.Sort((left, right) =>
+        {
+            fixed (char* leftName = left.Name, rightName = right.Name)
+            {
+                return ShellN.Functions.StrCmpLogicalW(new PWSTR(leftName), new PWSTR(rightName));
+            }
+        });
+        return [.. named.Select(item => item.Entry)];
+    }
+
+    private void OpenJumpList()
+    {
+        CloseMenu();
+        var tree = _explorer.Tree;
+        var includeHidden = _settings.ShowHidden;
+        var mapRoot = _layout.MapRoot;
+        Functions.GetClientRect(Handle, out var client);
+        var anchor = new D2D_RECT_F { left = 0, top = 0, right = client.right, bottom = ChromeTop + _panelMargin * DpiScale };
+        OpenPicker(Res.JumpPlaceholder, anchor, true, _jumpListWidth * DpiScale, (filter, cancellationToken) =>
+        {
+            if (filter.Length == 0)
+                return [new FolderRow(Entry.None, Res.BrowseRow, Res.BrowseDetail, string.Empty, 0, false) { IsBrowse = true }, .. DescribeFolders(tree, tree.GetSubfolders(mapRoot, includeHidden), false, Entry.None)];
+
+            if (ShellCommands.AsLocation(filter) is { } location)
+                return DescribeLocation(tree, location);
+
+            return DescribeFolders(tree, tree.FindFolders(filter, _jumpListLimit, includeHidden, cancellationToken), true, mapRoot);
+        });
+    }
+
+    // a typed path already in the tree is reached on the map as it is, anything else the shell can parse opens as a new map.
+    private static List<FolderRow> DescribeLocation(NamespaceTree tree, string location)
+    {
+        var entry = tree.FindFileSystemPath(location);
+        if (entry >= 0)
+            return [DescribeFolder(tree, entry, true, tree[entry].TotalSize, false)];
+
+        if (ShellCommands.ResolveStart(location) is { } start)
+            return [new FolderRow(Entry.None, location, Res.LocationNewMap, string.Empty, 0, false) { Start = start }];
+
+        return [];
+    }
+
+    private void ChooseRow(FolderRow row)
+    {
+        if (row.IsBrowse)
+        {
+            BrowseForFolder();
+            return;
+        }
+
+        if (row.Start != null)
+        {
+            CloseMenu();
+            _navigator.OpenLocation(row.Start);
+            Invalidate(null, false);
+            return;
+        }
+
+        // a file typed by its path is shown in the folder that holds it.
+        var tree = _explorer.Tree;
+        if (row.Entry >= 0 && row.Entry < tree.Count)
+        {
+            GoToFolder(tree[row.Entry].IsContainer ? row.Entry : tree[row.Entry].Parent);
+        }
+    }
+
+    private void BrowseForFolder()
+    {
+        CloseMenu();
+        _navigator.BrowseForFolder(Res.BrowseTitle);
+        Invalidate(null, false);
+    }
+
+    private void OpenPicker(string placeholder, D2D_RECT_F anchor, bool centered, float width, Func<string, CancellationToken, IReadOnlyList<FolderRow>> search)
+    {
+        _menu.Close();
+        _wheel.Close();
+        Functions.GetClientRect(Handle, out var client);
+        var frame = new D2D_RECT_F { left = 0, top = ChromeTop, right = client.right, bottom = client.bottom };
+        _picker.Open(placeholder, anchor, centered, width, frame, DpiScale, search);
+        RequestPick(-1, -1, PickAction.Hover);
+        _chromeDirty = true;
+        Invalidate(null, false);
+    }
+
+    private void OpenWheel(POINT point)
+    {
+        var tree = _explorer.Tree;
+        var hovered = _navigator.Hovered;
+        var folder = _layout.MapRoot;
+        if (hovered >= 0 && hovered < tree.Count)
+        {
+            folder = _renderer.Layout?.AggregateInfos.TryGetValue(hovered, out var aggregate) == true ? aggregate.Container : tree[hovered].IsContainer ? hovered : tree[hovered].Parent;
+        }
+
+        if (folder < 0 || folder >= tree.Count)
+            return;
+
+        CloseMenu();
+        var includeHidden = _settings.ShowHidden;
+        Functions.GetClientRect(Handle, out var client);
+        var frame = new D2D_RECT_F { left = 0, top = ChromeTop, right = client.right, bottom = client.bottom };
+        _wheel.Open(new D2D_POINT_2F(point.x, point.y), folder, frame, DpiScale,
+            entry => tree.GetSubfolders(entry, includeHidden),
+            entry => tree[entry].TotalSize,
+            entry => DescribeFolder(tree, entry, false, 1, false));
+        RequestPick(-1, -1, PickAction.Hover);
+        _chromeDirty = true;
+        Invalidate(null, false);
+    }
+
+    private void GoToFolder(int entry)
+    {
+        CloseMenu();
+        _navigator.Preview(Entry.None);
+        var tree = _explorer.Tree;
+        if (entry < 0 || entry >= tree.Count)
+            return;
+
+        if (entry == _layout.MapRoot)
+        {
+            _navigator.ClearSelection();
+            FrameAll();
+        }
+        else
+        {
+            _navigator.Dive(entry);
+        }
+        Invalidate(null, false);
+    }
+
+    private void PreviewFolder(int entry)
+    {
+        _navigator.Preview(entry);
+        Invalidate(null, false);
+    }
+
+    private static bool Matches(NamespaceTree tree, int entry, string filter) => filter.Length == 0 || tree.GetName(entry).Contains(filter, StringComparison.OrdinalIgnoreCase);
+
+    private static List<FolderRow> DescribeFolders(NamespaceTree tree, IReadOnlyList<int> entries, bool withPath, int current)
+    {
+        long largest = 1;
+        foreach (var entry in entries)
+        {
+            largest = Math.Max(largest, tree[entry].TotalSize);
+        }
+
+        var rows = new List<FolderRow>(entries.Count);
+        foreach (var entry in entries)
+        {
+            rows.Add(DescribeFolder(tree, entry, withPath, largest, entry == current));
+        }
+        return rows;
+    }
+
+    private static FolderRow DescribeFolder(NamespaceTree tree, int entry, bool withPath, long largest, bool isCurrent)
+    {
+        ref readonly var item = ref tree[entry];
+        var size = Navigator.FormatBytes(item.TotalSize);
+        string detail;
+        if (withPath)
+        {
+            var names = new List<string>();
+            for (var parent = item.Parent; parent != Entry.None; parent = tree[parent].Parent)
+            {
+                names.Add(tree.GetName(parent).ToString());
+            }
+            names.Reverse();
+            detail = string.Join(Res.HudBreadcrumbSeparator, names);
+        }
+        else
+        {
+            detail = string.Format(CultureInfo.CurrentCulture, Res.FolderItems, item.DescendantCount);
+        }
+        return new FolderRow(entry, tree.GetName(entry).ToString(), detail, size, (float)(item.TotalSize / (double)largest), isCurrent);
     }
 
     private void ToggleHidden()
@@ -1969,7 +2261,7 @@ public sealed class MainWindow : Window
 
         if (_pressedButton == MouseButton.None && _dragMode == DragMode.None)
         {
-            _chromeDirty |= _menu.IsOpen ? _menu.OnMouseMove(point.x, point.y) : _titleBar.OnMouseMove(point.x, point.y);
+            _chromeDirty |= OpenPopup is { } popup ? popup.OnMouseMove(point.x, point.y) : _titleBar.OnMouseMove(point.x, point.y);
             if (IsOverChrome(point))
             {
                 _renderer.Island.ClearHover();
@@ -2032,6 +2324,10 @@ public sealed class MainWindow : Window
 
                 case MouseButton.Right:
                     RequestPick(point.x, point.y, PickAction.ContextMenu);
+                    break;
+
+                case MouseButton.Middle:
+                    OpenWheel(point);
                     break;
             }
         }

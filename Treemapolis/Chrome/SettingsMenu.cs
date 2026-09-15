@@ -9,8 +9,6 @@ public sealed class SettingsMenu : Control
     private const float _gap = 18;
     private const float _minimumWidth = 210;
     private const float _maximumWidth = 460;
-    private const float _shadow = 1;
-    private const float _radius = 6;
     private const float _wheelRows = 3;
     private const float _wheelDelta = 120;
     private const float _sliderWidth = 140;
@@ -267,12 +265,7 @@ public sealed class SettingsMenu : Control
     private void RenderList(IComObject<ID2D1DeviceContext> context, ChromeResources resources, IReadOnlyList<MenuEntry> entries, D2D_RECT_F bounds, RowHover hover)
     {
         var native = context.Object;
-        var radius = _radius * _scale;
-        var shadow = _shadow * _scale;
-        var shadowRect = new D2D_RECT_F { left = bounds.left + shadow, top = bounds.top + shadow, right = bounds.right + shadow, bottom = bounds.bottom + shadow };
-        native.FillRoundedRectangle(new D2D1_ROUNDED_RECT { rect = shadowRect, radiusX = radius, radiusY = radius }, resources.MenuShadowBrush.Object);
-        native.FillRoundedRectangle(new D2D1_ROUNDED_RECT { rect = bounds, radiusX = radius, radiusY = radius }, resources.MenuBackgroundBrush.Object);
-        native.DrawRoundedRectangle(new D2D1_ROUNDED_RECT { rect = bounds, radiusX = radius, radiusY = radius }, resources.LineBrush.Object, 1, null);
+        resources.DrawMenuPanel(context, bounds);
 
         var padding = _padding * _scale;
         native.PushAxisAlignedClip(bounds, D2D1_ANTIALIAS_MODE.D2D1_ANTIALIAS_MODE_ALIASED);

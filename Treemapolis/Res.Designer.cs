@@ -79,6 +79,33 @@ namespace Treemapolis {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Pick any folder with the Windows folder picker (Ctrl+O).
+        /// </summary>
+        internal static string BrowseDetail {
+            get {
+                return ResourceManager.GetString("BrowseDetail", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Browse for a folder….
+        /// </summary>
+        internal static string BrowseRow {
+            get {
+                return ResourceManager.GetString("BrowseRow", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Choose a folder to map.
+        /// </summary>
+        internal static string BrowseTitle {
+            get {
+                return ResourceManager.GetString("BrowseTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Back (Alt+Left).
         /// </summary>
         internal static string CaptionBack {
@@ -196,6 +223,15 @@ namespace Treemapolis {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Jump to a folder (Ctrl+K).
+        /// </summary>
+        internal static string CaptionSearch {
+            get {
+                return ResourceManager.GetString("CaptionSearch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Settings.
         /// </summary>
         internal static string CaptionSettings {
@@ -300,6 +336,24 @@ namespace Treemapolis {
         internal static string ElevationPercent {
             get {
                 return ResourceManager.GetString("ElevationPercent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Type to filter.
+        /// </summary>
+        internal static string FilterPlaceholder {
+            get {
+                return ResourceManager.GetString("FilterPlaceholder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0:N0} items.
+        /// </summary>
+        internal static string FolderItems {
+            get {
+                return ResourceManager.GetString("FolderItems", resourceCulture);
             }
         }
         
@@ -471,6 +525,15 @@ namespace Treemapolis {
         internal static string IslandDriveDetail {
             get {
                 return ResourceManager.GetString("IslandDriveDetail", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Jump to a folder, or type a path.
+        /// </summary>
+        internal static string JumpPlaceholder {
+            get {
+                return ResourceManager.GetString("JumpPlaceholder", resourceCulture);
             }
         }
         
@@ -700,6 +763,15 @@ namespace Treemapolis {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Not scanned yet, opens as a new map.
+        /// </summary>
+        internal static string LocationNewMap {
+            get {
+                return ResourceManager.GetString("LocationNewMap", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The location '{0}' could not be found..
         /// </summary>
         internal static string LocationNotFound {
@@ -795,6 +867,24 @@ namespace Treemapolis {
         internal static string PassUpload {
             get {
                 return ResourceManager.GetString("PassUpload", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No folder found.
+        /// </summary>
+        internal static string PickerNothing {
+            get {
+                return ResourceManager.GetString("PickerNothing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Searching….
+        /// </summary>
+        internal static string PickerSearching {
+            get {
+                return ResourceManager.GetString("PickerSearching", resourceCulture);
             }
         }
         

@@ -45,6 +45,20 @@ and it is also a genuinely fast disk space explorer.
 
 * **Orbit, pan and zoom** with the mouse, the camera flies smoothly from one place to the next.
 * **Dive into any folder** with a double click, back, forward and up like a browser, with the history kept across folders.
+* **A path you can click.** The caption shows where you are, folder by folder. A name takes you there, the chevron after it lists
+  the folders it holds, largest first with their size, and typing filters the list.
+* **Jump anywhere** with Ctrl+K: type part of a name and every folder of every scanned drive is searched as you type, best matches
+  and biggest folders first. Type a path instead (`C:\Users`, `\\server\share`, `%APPDATA%`, `shell:Downloads`) to go straight
+  there, or pick a folder with the Windows folder picker (Ctrl+O).
+* **Folder wheel.** Middle click anywhere for a sunburst of the subfolders around the pointer, each arc as wide as its share of the
+  disk. Move outward to grow the next ring, click an arc to fly there.
+* **Walk with the arrow keys** from block to block, the camera follows, Enter dives in.
+* Whatever you point at in a list or on the wheel lights up on the map before you go.
+
+| The folder wheel | The path and its folders |
+|---|---|
+| ![The folder wheel, five rings deep](media/wheel.jpg) | ![The folders listed from the path in the caption](media/breadcrumb.jpg) |
+
 * **Street level.** Come down between the buildings and look up at them and at the sky.
 * **Drives and places island** on the left, always there: every local drive with its free space, and the children of the Desktop, with their
   shell icons. A click takes you there.
@@ -105,6 +119,10 @@ and it is also a genuinely fast disk space explorer.
 
 | Key | Action |
 |---|---|
+| Ctrl+K, Ctrl+F | Jump to any folder, or type a path |
+| Ctrl+O | Pick a folder with the Windows folder picker |
+| Arrows | Move the selection to the neighboring block |
+| Enter | Dive into the selection, open a file |
 | Backspace | Up to the parent folder |
 | Alt+Left, Alt+Right | Back, forward |
 | Home | Frame the whole map |

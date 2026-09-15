@@ -123,6 +123,15 @@
   <data name="AntialiasSamples" xml:space="preserve">
     <value>MSAA {0}x</value>
   </data>
+  <data name="BrowseDetail" xml:space="preserve">
+    <value>Pick any folder with the Windows folder picker (Ctrl+O)</value>
+  </data>
+  <data name="BrowseRow" xml:space="preserve">
+    <value>Browse for a folder…</value>
+  </data>
+  <data name="BrowseTitle" xml:space="preserve">
+    <value>Choose a folder to map</value>
+  </data>
   <data name="CaptionBack" xml:space="preserve">
     <value>Back (Alt+Left)</value>
   </data>
@@ -162,6 +171,9 @@
   <data name="CaptionReveal" xml:space="preserve">
     <value>Show in File Explorer</value>
   </data>
+  <data name="CaptionSearch" xml:space="preserve">
+    <value>Jump to a folder (Ctrl+K)</value>
+  </data>
   <data name="CaptionSettings" xml:space="preserve">
     <value>Settings</value>
   </data>
@@ -197,6 +209,12 @@
   </data>
   <data name="ElevationPercent" xml:space="preserve">
     <value>{0:0} %</value>
+  </data>
+  <data name="FilterPlaceholder" xml:space="preserve">
+    <value>Type to filter</value>
+  </data>
+  <data name="FolderItems" xml:space="preserve">
+    <value>{0:N0} items</value>
   </data>
   <data name="GroundGrid" xml:space="preserve">
     <value>Grid</value>
@@ -254,6 +272,9 @@
   </data>
   <data name="IslandDriveDetail" xml:space="preserve">
     <value>{0} free of {1}</value>
+  </data>
+  <data name="JumpPlaceholder" xml:space="preserve">
+    <value>Jump to a folder, or type a path</value>
   </data>
   <data name="LegendAgeDay" xml:space="preserve">
     <value>Within a day</value>
@@ -330,6 +351,9 @@
   <data name="LocationIdListNotFound" xml:space="preserve">
     <value>The location could not be found from its identifier list.</value>
   </data>
+  <data name="LocationNewMap" xml:space="preserve">
+    <value>Not scanned yet, opens as a new map</value>
+  </data>
   <data name="LocationNotFound" xml:space="preserve">
     <value>The location '{0}' could not be found.</value>
   </data>
@@ -362,6 +386,12 @@
   </data>
   <data name="PassUpload" xml:space="preserve">
     <value>Upload</value>
+  </data>
+  <data name="PickerNothing" xml:space="preserve">
+    <value>No folder found</value>
+  </data>
+  <data name="PickerSearching" xml:space="preserve">
+    <value>Searching…</value>
   </data>
   <data name="RecentClear" xml:space="preserve">
     <value>Clear the list</value>

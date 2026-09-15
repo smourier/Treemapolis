@@ -23,6 +23,7 @@ public sealed class Glyphs
         Shield = modern ? (char)0xEA18 : '⛨';
         Check = modern ? (char)0xE73E : '✓';
         Submenu = modern ? (char)0xE76C : '❯';
+        Search = modern ? (char)0xE721 : '⌕';
     }
 
     public string Family { get; }
@@ -37,6 +38,7 @@ public sealed class Glyphs
     public char Shield { get; }
     public char Check { get; }
     public char Submenu { get; }
+    public char Search { get; }
 
     private static bool HasFamily(IComObject<IDWriteFactory> factory, string name)
     {

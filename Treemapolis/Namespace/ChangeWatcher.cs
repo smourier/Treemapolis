@@ -103,14 +103,39 @@ public sealed class ChangeWatcher : IDisposable
 
     // too many changes at once and Windows drops them, a folder deleted with thousands of files is enough.
     // nothing then says what changed, so every folder whose date moved is read again and compared.
+    // any other error means the volume stopped reporting changes, one that cannot report them answers incorrect function,
+    // reading everything again would not bring the watch back, so that folder is simply no longer watched.
     private void OnError(object sender, ErrorEventArgs e)
     {
-        Application.TraceWarning($"changes were lost: {e.GetException().Message}");
+        var exception = e.GetException();
+        if (exception is not InternalBufferOverflowException)
+        {
+            StopWatching((FileSystemWatcher)sender, exception);
+            return;
+        }
+
+        Application.TraceWarning($"changes were lost: {exception.Message}");
         Interlocked.Exchange(ref _lost, 1);
         if (Interlocked.Exchange(ref _armed, 1) == 0)
         {
             _timer.Change(_flushMilliseconds, Timeout.Infinite);
         }
+    }
+
+    private void StopWatching(FileSystemWatcher watcher, Exception exception)
+    {
+        lock (_lock)
+        {
+            var index = _folders.FindIndex(folder => folder.Watcher == watcher);
+            if (index < 0)
+                return;
+
+            Application.TraceWarning($"'{_folders[index].Path}' is no longer watched: {exception.Message}");
+            _folders.RemoveAt(index);
+        }
+
+        watcher.EnableRaisingEvents = false;
+        ThreadPool.QueueUserWorkItem(_ => watcher.Dispose());
     }
 
     private void Enqueue(string path)

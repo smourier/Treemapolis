@@ -10,6 +10,7 @@ public enum CaptionButton
     Hidden,
     FrameAll,
     ColorMode,
+    Search,
     Elevate,
     Settings,
 }

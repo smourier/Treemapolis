@@ -18,6 +18,7 @@ public sealed class Navigator(NamespaceExplorer explorer, LayoutEngine layout, S
 
     public int Hovered { get; private set; } = Entry.None;
     public int Selected { get; private set; } = Entry.None;
+    public int Previewed { get; private set; } = Entry.None;
     public Vector2 HoverPoint { get; private set; }
 
     public PickResult? GetLastPick(PickAction action) => _lastPicks[(int)action];
@@ -167,6 +168,22 @@ public sealed class Navigator(NamespaceExplorer explorer, LayoutEngine layout, S
         ClearPending();
         ResetPointing();
         explorer.Open(idList);
+    }
+
+    public void BrowseForFolder(string title)
+    {
+        if (shell.BrowseForFolder(title) is { } idList)
+        {
+            OpenLocation(idList);
+        }
+    }
+
+    // a location typed or picked, a step in the history like any other.
+    public void OpenLocation(StartLocation location)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+        Remember();
+        StartAt(location);
     }
 
     public void OpenLocation(string parsingName)
@@ -485,9 +502,97 @@ public sealed class Navigator(NamespaceExplorer explorer, LayoutEngine layout, S
         camera.FlyTo(target, distance);
     }
 
+    public void Preview(int entry)
+    {
+        var snapshot = renderer.Layout;
+        var tree = explorer.Tree;
+        var shown = Entry.None;
+        if (snapshot != null && snapshot.Tree == tree)
+        {
+            for (var current = entry; current >= 0 && current < tree.Count; current = tree[current].Parent)
+            {
+                if (snapshot.IsDisplayed(current))
+                {
+                    shown = current;
+                    break;
+                }
+            }
+        }
+
+        if (shown == Previewed)
+            return;
+
+        Previewed = shown;
+        Sync();
+    }
+
+    public bool Walk(Vector2 direction, Matrix4x4 viewProjection, Vector2 viewport)
+    {
+        var snapshot = renderer.Layout;
+        var tree = explorer.Tree;
+        if (snapshot == null || snapshot.Tree != tree)
+            return false;
+
+        var current = snapshot.IsDisplayed(Selected) && Selected != snapshot.Root ? Selected : Entry.None;
+        var parent = current >= 0 ? tree[current].Parent : snapshot.Root;
+        if (parent < 0 || parent >= tree.Count)
+            return false;
+
+        var origin = viewport / 2;
+        if (current >= 0 && ProjectTop(snapshot, current, viewProjection, viewport) is { } position)
+        {
+            origin = position;
+        }
+
+        var best = Entry.None;
+        var bestScore = float.MaxValue;
+        for (var child = tree[parent].FirstChild; child != Entry.None; child = tree[child].NextSibling)
+        {
+            if (child == current || !snapshot.IsDisplayed(child) || ProjectTop(snapshot, child, viewProjection, viewport) is not { } point)
+                continue;
+
+            var offset = point - origin;
+            float score;
+            if (current < 0)
+            {
+                score = offset.Length();
+            }
+            else
+            {
+                var along = Vector2.Dot(offset, direction);
+                if (along <= 0)
+                    continue;
+
+                score = along + 2 * MathF.Abs(offset.X * direction.Y - offset.Y * direction.X);
+            }
+
+            if (score < bestScore)
+            {
+                bestScore = score;
+                best = child;
+            }
+        }
+
+        if (best < 0)
+            return false;
+
+        Select(best);
+        return true;
+    }
+
+    private static Vector2? ProjectTop(LayoutSnapshot snapshot, int entry, Matrix4x4 viewProjection, Vector2 viewport)
+    {
+        ref readonly var instance = ref snapshot.Instances[entry];
+        var clip = Vector4.Transform(new Vector4(instance.Position + new Vector3(0, instance.Size.Y, 0), 1), viewProjection);
+        if (clip.W <= 0)
+            return null;
+
+        return new Vector2((clip.X / clip.W + 1) / 2 * viewport.X, (1 - clip.Y / clip.W) / 2 * viewport.Y);
+    }
+
     private void Sync()
     {
-        renderer.HoveredEntry = Hovered;
+        renderer.HoveredEntry = Previewed >= 0 ? Previewed : Hovered;
         renderer.SelectedEntry = Selected;
     }
 }

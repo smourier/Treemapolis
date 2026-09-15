@@ -24,10 +24,10 @@
 		<Description>A 3D shell namespace navigator in C#, Direct3D 12 and NativeAOT.</Description>
 		<Copyright>Copyright (C) 2026-$([System.DateTime]::UtcNow.ToString("yyyy")) Simon Mourier. All rights reserved.</Copyright>
 
-		<ProductVersion>1.0.0</ProductVersion>
-		<Version>1.0.0</Version>
-		<FileVersion>1.0.0</FileVersion>
-		<InformationalVersion>1.0.0</InformationalVersion>
+		<ProductVersion>1.1.0</ProductVersion>
+		<Version>1.1.0</Version>
+		<FileVersion>1.1.0</FileVersion>
+		<InformationalVersion>1.1.0</InformationalVersion>
 		<SourceRevisionId>$([System.DateTime]::UtcNow.ToString("yyyyMMddHH"))</SourceRevisionId>
 	</PropertyGroup>
 
@@ -49,7 +49,9 @@
 		<PackageReference Include="ShellN" Version="1.0.8" />
 		<PackageReference Include="ShellN.Extensions" Version="1.0.8" />
 		<PackageReference Include="WicNetCore" Version="1.9.6" />
-		<PackageReference Include="Microsoft.Direct3D.DXC" Version="1.8.2505.32" PrivateAssets="all" ExcludeAssets="all" GeneratePathProperty="true" />
+		<!-- held at 1.8 on purpose, the shaders were only verified on the Windows 10 D3D12 runtime and its WARP as built by this compiler. -->
+		<!-- the shaders need nothing newer than shader model 6.0, so moving on means checking every pipeline on Windows 10 again first. -->
+		<PackageReference Include="Microsoft.Direct3D.DXC" Version="[1.8.2505.32]" PrivateAssets="all" ExcludeAssets="all" GeneratePathProperty="true" />
 	</ItemGroup>
 
 	<!-- a shader is named Name.stage.hlsl, the stage giving its profile, and the DXIL is embedded so nothing ships beside the exe. -->

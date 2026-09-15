@@ -26,8 +26,11 @@ public sealed class TitleBar : Control
     private const float _radius = 4;
     private const float _brandPadding = 10;
     private const float _brandGap = 8;
+    private const float _crumbPadding = 6;
+    private const float _chevronWidth = 18;
+    private const string _overflowText = "…";
 
-    private static readonly CaptionButton[] _navigation = [CaptionButton.Back, CaptionButton.Forward, CaptionButton.Up, CaptionButton.Reveal, CaptionButton.Hidden, CaptionButton.FrameAll, CaptionButton.ColorMode];
+    private static readonly CaptionButton[] _navigation = [CaptionButton.Back, CaptionButton.Forward, CaptionButton.Up, CaptionButton.Reveal, CaptionButton.Hidden, CaptionButton.FrameAll, CaptionButton.ColorMode, CaptionButton.Search];
 
     // one per button in drawing order, so each fades on its own rather than the row flashing together.
     private readonly HoverAnimation[] _navigationHovers = new HoverAnimation[_navigation.Length];
@@ -37,9 +40,13 @@ public sealed class TitleBar : Control
     private HoverAnimation _maximizeHover;
     private HoverAnimation _closeHover;
     private float _scale = 1;
-    private string? _compactSource;
-    private string? _compacted;
-    private float _compactWidth;
+    private IReadOnlyList<Crumb> _crumbs = [];
+    private float[] _crumbWidths = [];
+    private float _overflowWidth;
+    private ChromeResources? _crumbResources;
+    private readonly List<CrumbPart> _crumbParts = [];
+    private int _hotCrumbPart = -1;
+    private HoverAnimation _crumbHover;
     private string? _measuredStatus;
     private ChromeResources? _measuredResources;
     private float _statusWidth;
@@ -57,14 +64,12 @@ public sealed class TitleBar : Control
     public bool RevealEnabled { get; set; }
     public bool ShowHidden { get; set; }
     public bool IsElevated { get; set; }
-    public string Title { get; set; } = string.Empty;
-
-    // how many items and how the scan goes, written right of the title and left of the shield.
+    public IReadOnlyList<Crumb> Crumbs => _crumbs;
+    public int HiddenCrumbCount { get; private set; }
+    public Action<int, bool, D2D_RECT_F>? CrumbPressed { get; set; }
     public string Status { get; set; } = string.Empty;
     public Action<CaptionButton>? Pressed { get; set; }
     public float Height => MathF.Round(_height * _scale);
-
-    // what the button under the pointer does, and where it is, for the tooltip shown under it.
     public string? TooltipText => HotWindowButton switch
     {
         HitMinimize => Res.CaptionMinimize,
@@ -79,6 +84,7 @@ public sealed class TitleBar : Control
             CaptionButton.Hidden => ShowHidden ? Res.CaptionHideHidden : Res.CaptionShowHidden,
             CaptionButton.FrameAll => Res.CaptionFrameAll,
             CaptionButton.ColorMode => Res.CaptionColorMode,
+            CaptionButton.Search => Res.CaptionSearch,
             CaptionButton.Elevate => IsElevated ? Res.CaptionElevated : Res.CaptionElevate,
             CaptionButton.Settings => Res.CaptionSettings,
             _ => null,
@@ -132,7 +138,7 @@ public sealed class TitleBar : Control
             return HitClient;
 
         // the icon and the name drag the window like the rest of the caption.
-        if (x >= NavigationLeft && x < NavigationRight || ButtonAt(x, y) is CaptionButton.Settings or CaptionButton.Elevate)
+        if (x >= NavigationLeft && x < NavigationRight || CrumbPartAt(x, y) >= 0 || ButtonAt(x, y) is CaptionButton.Settings or CaptionButton.Elevate)
             return HitClient;
 
         var width = _buttonWidth * _scale;
@@ -178,18 +184,31 @@ public sealed class TitleBar : Control
 
     public override bool OnMouseMove(float x, float y)
     {
+        var changed = SetHotCrumbPart(CrumbPartAt(x, y));
         var button = ButtonAt(x, y);
         if (button == HotButton)
-            return false;
+            return changed;
 
         HotButton = button;
         return true;
     }
 
-    public override void OnMouseLeave() => HotButton = CaptionButton.None;
+    public override void OnMouseLeave()
+    {
+        HotButton = CaptionButton.None;
+        SetHotCrumbPart(-1);
+    }
 
     public override bool OnMouseDown(float x, float y)
     {
+        var part = CrumbPartAt(x, y);
+        if (part >= 0)
+        {
+            var pressed = _crumbParts[part];
+            CrumbPressed?.Invoke(pressed.Index, pressed.IsChevron, pressed.Rect);
+            return true;
+        }
+
         var button = ButtonAt(x, y);
         if (!IsEnabled(button))
             return Contains(x, y);
@@ -229,13 +248,14 @@ public sealed class TitleBar : Control
                 CaptionButton.Reveal => glyphs.Reveal,
                 CaptionButton.FrameAll => glyphs.FrameAll,
                 CaptionButton.Hidden => glyphs.Hidden,
+                CaptionButton.Search => glyphs.Search,
                 _ => glyphs.ColorMode,
             };
             var left = NavigationLeft + _navigationWidth * _scale * i;
             DrawGlyphButton(context, resources, ref _navigationHovers[i], button, glyph, left, _navigationWidth);
         }
 
-        // the status keeps up to half of the room between the buttons, trimmed past that, and the title compacts into the rest.
+        // the status keeps up to half of the room between the buttons, trimmed past that, and the path fits into the rest.
         var titleLeft = NavigationRight + _titleGap * _scale;
         var statusRight = ElevateLeft - _titleGap * _scale;
         var statusWidth = MathF.Min(MeasureStatus(resources), MathF.Max(0, statusRight - titleLeft) * _statusShare);
@@ -243,7 +263,7 @@ public sealed class TitleBar : Control
         ChromeResources.DrawText(context, Status, resources.CaptionRightFormat, statusRect, resources.DimTextBrush);
 
         var titleRect = new D2D_RECT_F { left = titleLeft, top = Bounds.top, right = statusRect.left - (statusWidth > 0 ? _statusGap : _titleGap) * _scale, bottom = Bounds.bottom };
-        ChromeResources.DrawText(context, Compact(Title, titleRect.right - titleRect.left, resources), resources.CaptionFormat, titleRect, resources.TextBrush);
+        RenderCrumbs(context, resources, titleRect);
 
         DrawGlyphButton(context, resources, ref _elevateHover, CaptionButton.Elevate, glyphs.Shield, ElevateLeft, _gearWidth);
         DrawGlyphButton(context, resources, ref _gearHover, CaptionButton.Settings, glyphs.Settings, GearLeft, _gearWidth);
@@ -254,26 +274,133 @@ public sealed class TitleBar : Control
         context.Object.DrawLine(new D2D_POINT_2F(Bounds.left, Bounds.bottom - 0.5f), new D2D_POINT_2F(Bounds.right, Bounds.bottom - 0.5f), resources.LineBrush.Object, 1, null);
     }
 
-    // PathCompactPathExW is what Explorer uses to fit a path in a field, it replaces whole segments with an ellipsis so both ends survive.
-    private ReadOnlySpan<char> Compact(string title, float width, ChromeResources resources)
+    public bool SetCrumbs(IReadOnlyList<Crumb> crumbs)
     {
-        if (width <= 0)
-            return default;
+        ArgumentNullException.ThrowIfNull(crumbs);
+        if (crumbs.SequenceEqual(_crumbs))
+            return false;
 
-        var budget = (int)(width / resources.CaptionCharacterWidth);
-        if (budget >= title.Length)
-            return title;
-
-        if (_compacted != null && _compactWidth == width && _compactSource == title)
-            return _compacted;
-
-        using var buffer = new AllocPwstr((uint)((budget + 1) * 2));
-        ShellN.Functions.PathCompactPathExW(buffer, PWSTR.From(title), (uint)budget, 0);
-        _compactSource = title;
-        _compactWidth = width;
-        _compacted = buffer.ToString();
-        return _compacted ?? title;
+        _crumbs = crumbs;
+        _crumbResources = null;
+        _crumbParts.Clear();
+        _hotCrumbPart = -1;
+        return true;
     }
+
+    private void RenderCrumbs(IComObject<ID2D1DeviceContext> context, ChromeResources resources, in D2D_RECT_F area)
+    {
+        _crumbParts.Clear();
+        HiddenCrumbCount = 0;
+        if (_crumbs.Count == 0 || area.right <= area.left)
+            return;
+
+        MeasureCrumbs(resources);
+        var padding = _crumbPadding * _scale;
+        var chevron = _chevronWidth * _scale;
+        var total = 0f;
+        for (var i = 0; i < _crumbs.Count; i++)
+        {
+            total += _crumbWidths[i] + 2 * padding + chevron;
+        }
+
+        var first = 0;
+        var available = area.right - area.left;
+        while (first < _crumbs.Count - 1 && total + (first > 0 ? _overflowWidth + 2 * padding : 0) > available)
+        {
+            total -= _crumbWidths[first] + 2 * padding + chevron;
+            first++;
+        }
+        HiddenCrumbCount = first;
+
+        var x = area.left;
+        if (first > 0)
+        {
+            var width = _overflowWidth + 2 * padding;
+            _crumbParts.Add(new CrumbPart(-1, false, new D2D_RECT_F { left = x, top = Bounds.top, right = x + width, bottom = Bounds.bottom }));
+            x += width;
+        }
+
+        for (var i = first; i < _crumbs.Count; i++)
+        {
+            var width = MathF.Min(_crumbWidths[i] + 2 * padding, MathF.Max(0, area.right - chevron - x));
+            _crumbParts.Add(new CrumbPart(i, false, new D2D_RECT_F { left = x, top = Bounds.top, right = x + width, bottom = Bounds.bottom }));
+            x += width;
+            _crumbParts.Add(new CrumbPart(i, true, new D2D_RECT_F { left = x, top = Bounds.top, right = x + chevron, bottom = Bounds.bottom }));
+            x += chevron;
+        }
+
+        if (_crumbHover.Advance(_hotCrumbPart >= 0, resources.ElapsedSeconds))
+        {
+            resources.Animating = true;
+        }
+
+        var inset = _inset * _scale;
+        var glyphs = resources.Glyphs;
+        for (var i = 0; i < _crumbParts.Count; i++)
+        {
+            var part = _crumbParts[i];
+            var rect = new D2D_RECT_F { left = part.Rect.left, top = part.Rect.top + inset, right = part.Rect.right, bottom = part.Rect.bottom - inset };
+            if (i == _hotCrumbPart)
+            {
+                resources.FillHover(context, rect, _crumbHover.Opacity, _radius * _scale);
+            }
+
+            if (part.IsChevron)
+            {
+                ReadOnlySpan<char> text = [glyphs.Submenu];
+                ChromeResources.DrawText(context, text, resources.GlyphFormat, rect, resources.DimTextBrush);
+                continue;
+            }
+
+            var textRect = rect with { left = rect.left + padding, right = MathF.Max(rect.left + padding, rect.right - padding) };
+            var name = part.Index < 0 ? _overflowText : _crumbs[part.Index].Name;
+            ChromeResources.DrawText(context, name, resources.CaptionFormat, textRect, resources.TextBrush);
+        }
+    }
+
+    private void MeasureCrumbs(ChromeResources resources)
+    {
+        if (_crumbResources == resources && _crumbWidths.Length == _crumbs.Count)
+            return;
+
+        _crumbWidths = new float[_crumbs.Count];
+        for (var i = 0; i < _crumbs.Count; i++)
+        {
+            _crumbWidths[i] = MeasureCaption(resources, _crumbs[i].Name);
+        }
+        _overflowWidth = MeasureCaption(resources, _overflowText);
+        _crumbResources = resources;
+    }
+
+    private static float MeasureCaption(ChromeResources resources, string text)
+    {
+        using var layout = resources.Factory.CreateTextLayout(resources.CaptionFormat, text);
+        layout.Object.GetMetrics(out var metrics).ThrowOnError();
+        return MathF.Ceiling(metrics.widthIncludingTrailingWhitespace);
+    }
+
+    private int CrumbPartAt(float x, float y)
+    {
+        for (var i = 0; i < _crumbParts.Count; i++)
+        {
+            var rect = _crumbParts[i].Rect;
+            if (x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom)
+                return i;
+        }
+        return -1;
+    }
+
+    private bool SetHotCrumbPart(int part)
+    {
+        if (part == _hotCrumbPart)
+            return false;
+
+        _hotCrumbPart = part;
+        _crumbHover = default;
+        return true;
+    }
+
+    private readonly record struct CrumbPart(int Index, bool IsChevron, D2D_RECT_F Rect);
 
     private float MeasureStatus(ChromeResources resources)
     {
