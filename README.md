@@ -4,6 +4,9 @@
 slab, every file a building as big as it weighs on disk. It is a technology demo of DirectX 12 driven from C# and .NET NativeAOT,
 and it is also a genuinely fast disk space explorer.
 
+It is an evolution of [Filociraptor](https://github.com/smourier/Filociraptor), a fast Windows file manager in pure C#, DirectX and
+NativeAOT. The same approach and the same libraries, taken from a flat list of files to a whole machine in three dimensions.
+
 ![Treemapolis in action, at double speed](media/treemapolis-rise.gif)
 
 🎬 **[Watch the demo video](https://github.com/smourier/Treemapolis/raw/main/media/treemapolis-demo.mp4)** (2:08, everything below, in real time)
