@@ -6,7 +6,7 @@ and it is also a genuinely fast disk space explorer.
 
 ![Treemapolis in action, at double speed](media/treemapolis-rise.gif)
 
-🎬 **[Watch the demo video](media/treemapolis-demo.mp4)** (2:08, everything below, in real time)
+🎬 **[Watch the demo video](media/treemapolis-demo.mp4?raw=true)** (2:08, everything below, in real time)
 
 ## At a glance
 
