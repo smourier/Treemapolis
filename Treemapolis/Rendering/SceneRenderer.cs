@@ -453,6 +453,8 @@ public sealed class SceneRenderer : IDisposable
             if (lineEffect != 0)
             {
                 native.SetGraphicsRootSignature(_edgesRootSignature.NativeObject);
+                // made the first time a line effect is chosen, a driver that cannot build it then fails only that effect.
+                _edgesPipeline ??= CreateEdgesPipeline(SampleCount);
                 native.SetPipelineState(_edgesPipeline.NativeObject);
                 native.SetGraphicsRootConstantBufferView(0, frameAddress);
                 native.SetGraphicsRootShaderResourceView(1, buffers.Camera.Visible.GpuVirtualAddress);
