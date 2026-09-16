@@ -49,7 +49,7 @@ NativeAOT. The same approach and the same libraries, taken from a flat list of f
 * **Orbit, pan and zoom** with the mouse, the camera flies smoothly from one place to the next.
 * **Dive into any folder** with a double click, back, forward and up like a browser, with the history kept across folders.
 * **A path you can click.** The caption shows where you are, folder by folder. A name takes you there, the chevron after it lists
-  the folders it holds, largest first with their size, and typing filters the list.
+  the folders it holds, sorted by name as Explorer sorts them, with their size, and typing filters the list.
 * **Jump anywhere** with Ctrl+K: type part of a name and every folder of every scanned drive is searched as you type, best matches
   and biggest folders first. Type a path instead (`C:\Users`, `\\server\share`, `%APPDATA%`, `shell:Downloads`) to go straight
   there, or pick a folder with the Windows folder picker (Ctrl+O).
@@ -158,3 +158,14 @@ NativeAOT. The same approach and the same libraries, taken from a flat list of f
 * A GPU with Direct3D 12 feature level 12.0. Without one, Treemapolis falls back to WARP, the software renderer that comes with Windows,
   which is slower but draws everything, effects included.
 * Administrator rights only to read NTFS master file tables, everything else runs as a normal user.
+
+## Building
+
+Open `Treemapolis.slnx` in Visual Studio 2026, choose the x64 or ARM64 platform and run.
+
+* **To build and run**, the ".NET desktop development" workload is all it takes. The build machine must be Windows on x64 or ARM64.
+* **To publish the NativeAOT executable**, with the x64 and ARM64 profiles in `Treemapolis/Properties/PublishProfiles`, add the "Desktop development with C++" workload, for the MSVC linker and the Windows SDK NativeAOT links with. 
+  Publishing for ARM64 from an x64 machine also needs the "MSVC ARM64 build tools" component.
+* **The 3 MB executable** is the published one packed with [UPX](https://upx.github.io), `upx --best --lzma treemapolis.exe`. UPX cannot pack ARM64 images.
+* **From the command line**, `dotnet publish Treemapolis/Treemapolis.csproj -c Release -r win-x64 -p:Platform=x64` does the same.
+  Run it from a Developer Command Prompt, the NativeAOT link step looks for Visual Studio with `vswhere.exe`, which is not on the path of an ordinary prompt.
