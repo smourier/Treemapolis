@@ -95,11 +95,24 @@
 	<PropertyGroup>
 		<DxcHostArchitecture Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64'">arm64</DxcHostArchitecture>
 		<DxcHostArchitecture Condition="'$(DxcHostArchitecture)' == ''">x64</DxcHostArchitecture>
-		<DxcPath>$(PkgMicrosoft_Direct3D_DXC)\build\native\bin\$(DxcHostArchitecture)\dxc.exe</DxcPath>
 		<DxcShaderOutputDir>$(BaseIntermediateOutputPath)$(Platform)\$(Configuration)\Shaders\</DxcShaderOutputDir>
 		<!-- one set of flags for every configuration, the Windows 10 D3D12 runtime crashes on shaders built with -Od or -Zi. -->
 		<DxcConfigurationArguments>-O3 -Qstrip_debug -Qstrip_reflect</DxcConfigurationArguments>
 	</PropertyGroup>
+
+	<!-- restore writes the package path into a props file, and a build that restores in the same evaluation, as a first build in Visual Studio can, does not see it yet. -->
+	<!-- a fresh evaluation of this project, asked for through the MSBuild task, reads that file, wherever the packages folder is. -->
+	<Target Name="TreemapolisGetDxcPackage" Returns="$(PkgMicrosoft_Direct3D_DXC)" />
+
+	<Target Name="TreemapolisResolveDxc" BeforeTargets="TreemapolisCompileShaders">
+		<MSBuild Condition="'$(PkgMicrosoft_Direct3D_DXC)' == ''" Projects="$(MSBuildProjectFullPath)" Targets="TreemapolisGetDxcPackage" Properties="TreemapolisDxcLookup=true">
+			<Output TaskParameter="TargetOutputs" PropertyName="PkgMicrosoft_Direct3D_DXC" />
+		</MSBuild>
+		<PropertyGroup>
+			<DxcPath>$(PkgMicrosoft_Direct3D_DXC)\build\native\bin\$(DxcHostArchitecture)\dxc.exe</DxcPath>
+		</PropertyGroup>
+		<Error Condition="!Exists('$(DxcPath)')" Text="The DXC shader compiler was not found at '$(DxcPath)'. Restore the NuGet packages, then build again." />
+	</Target>
 
 	<Target Name="TreemapolisCompileShaders" BeforeTargets="PrepareForBuild" Inputs="@(Shader);@(ShaderInclude);$(MSBuildProjectFile)" Outputs="@(Shader->'$(DxcShaderOutputDir)%(Filename).cso')">
 		<MakeDir Directories="$(DxcShaderOutputDir)" />
