@@ -100,11 +100,10 @@
 		<DxcConfigurationArguments>-O3 -Qstrip_debug -Qstrip_reflect</DxcConfigurationArguments>
 	</PropertyGroup>
 
-	<!-- restore writes the package path into a props file, and a build that restores in the same evaluation, as a first build in Visual Studio can, does not see it yet. -->
-	<!-- a fresh evaluation of this project, asked for through the MSBuild task, reads that file, wherever the packages folder is. -->
 	<Target Name="TreemapolisGetDxcPackage" Returns="$(PkgMicrosoft_Direct3D_DXC)" />
 
-	<Target Name="TreemapolisResolveDxc" BeforeTargets="TreemapolisCompileShaders">
+	<Target Name="TreemapolisResolveDxc" BeforeTargets="TreemapolisCompileShaders" Condition="'$(DesignTimeBuild)' != 'true'">
+		<Error Condition="!Exists('$(ProjectAssetsFile)')" Text="The NuGet packages of this project have not been restored, '$(ProjectAssetsFile)' does not exist. Restore them, in Visual Studio with Restore NuGet Packages on the solution, or with dotnet restore, then build again." />
 		<MSBuild Condition="'$(PkgMicrosoft_Direct3D_DXC)' == ''" Projects="$(MSBuildProjectFullPath)" Targets="TreemapolisGetDxcPackage" Properties="TreemapolisDxcLookup=true">
 			<Output TaskParameter="TargetOutputs" PropertyName="PkgMicrosoft_Direct3D_DXC" />
 		</MSBuild>
@@ -114,7 +113,7 @@
 		<Error Condition="!Exists('$(DxcPath)')" Text="The DXC shader compiler was not found at '$(DxcPath)'. Restore the NuGet packages, then build again." />
 	</Target>
 
-	<Target Name="TreemapolisCompileShaders" BeforeTargets="PrepareForBuild" Inputs="@(Shader);@(ShaderInclude);$(MSBuildProjectFile)" Outputs="@(Shader->'$(DxcShaderOutputDir)%(Filename).cso')">
+	<Target Name="TreemapolisCompileShaders" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'" Inputs="@(Shader);@(ShaderInclude);$(MSBuildProjectFile)" Outputs="@(Shader->'$(DxcShaderOutputDir)%(Filename).cso')">
 		<MakeDir Directories="$(DxcShaderOutputDir)" />
 		<Exec Command="&quot;$(DxcPath)&quot; -nologo -HV 2021 -WX -T $([System.IO.Path]::GetExtension('%(Shader.Filename)').TrimStart('.'))_%(Shader.Model) -E main -I Shaders $(DxcConfigurationArguments) -Fo &quot;$(DxcShaderOutputDir)%(Shader.Filename).cso&quot; &quot;%(Shader.Identity)&quot;" />
 	</Target>
