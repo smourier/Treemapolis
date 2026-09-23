@@ -44,14 +44,21 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="DirectNAot" Version="1.6.9" />
-		<PackageReference Include="DirectNAot.Extensions" Version="1.6.9" />
-		<PackageReference Include="ShellN" Version="1.0.8" />
-		<PackageReference Include="ShellN.Extensions" Version="1.0.8" />
-		<PackageReference Include="WicNetCore" Version="1.9.7" />
+		<PackageReference Include="DirectNAot" Version="1.7.0" />
+		<PackageReference Include="DirectNAot.Extensions" Version="1.7.0" />
+		<PackageReference Include="ShellN" Version="1.1.0" />
+		<PackageReference Include="ShellN.Extensions" Version="1.1.0" />
+		<PackageReference Include="WicNetCore" Version="1.9.8" />
 		<!-- held at 1.8 on purpose, the shaders were only verified on the Windows 10 D3D12 runtime and its WARP as built by this compiler. -->
 		<!-- the shaders need nothing newer than shader model 6.0, so moving on means checking every pipeline on Windows 10 again first. -->
 		<PackageReference Include="Microsoft.Direct3D.DXC" Version="[1.8.2505.32]" PrivateAssets="all" ExcludeAssets="all" GeneratePathProperty="true" />
+	</ItemGroup>
+
+	<!-- traces show HRESULT names and the window keeps its "About" system menu, DirectN trims both from an AOT build unless asked.
+	     Trim is what makes the AOT compiler see them. -->
+	<ItemGroup>
+		<RuntimeHostConfigurationOption Include="DirectN.HRESULT.IsNameLookupSupported" Value="true" Trim="true" />
+		<RuntimeHostConfigurationOption Include="DirectN.Extensions.Window.IsAboutSysMenuSupported" Value="true" Trim="true" />
 	</ItemGroup>
 
 	<!-- a shader is named Name.stage.hlsl, the stage giving its profile, and the DXIL is embedded so nothing ships beside the exe. -->
