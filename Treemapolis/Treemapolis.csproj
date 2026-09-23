@@ -44,11 +44,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="DirectNAot" Version="1.6.8" />
-		<PackageReference Include="DirectNAot.Extensions" Version="1.6.8" />
+		<PackageReference Include="DirectNAot" Version="1.6.9" />
+		<PackageReference Include="DirectNAot.Extensions" Version="1.6.9" />
 		<PackageReference Include="ShellN" Version="1.0.8" />
 		<PackageReference Include="ShellN.Extensions" Version="1.0.8" />
-		<PackageReference Include="WicNetCore" Version="1.9.6" />
+		<PackageReference Include="WicNetCore" Version="1.9.7" />
 		<!-- held at 1.8 on purpose, the shaders were only verified on the Windows 10 D3D12 runtime and its WARP as built by this compiler. -->
 		<!-- the shaders need nothing newer than shader model 6.0, so moving on means checking every pipeline on Windows 10 again first. -->
 		<PackageReference Include="Microsoft.Direct3D.DXC" Version="[1.8.2505.32]" PrivateAssets="all" ExcludeAssets="all" GeneratePathProperty="true" />
