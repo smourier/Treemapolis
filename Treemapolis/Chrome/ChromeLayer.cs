@@ -18,7 +18,7 @@ public sealed class ChromeLayer : IDisposable
     private readonly ComObject<IDCompositionVisual> _chromeVisual;
     private readonly IComObject<IDXGISwapChain1> _swapChain;
     private ComObject<IDCompositionVisual>? _sceneVisual;
-    private nint _sceneSwapChain;
+    private IComObject<IDXGISwapChain3>? _sceneSwapChain;
     private IComObject<ID2D1Bitmap1>? _targetBitmap;
 
     public ChromeLayer(HWND hwnd, bool debug)
@@ -81,7 +81,7 @@ public sealed class ChromeLayer : IDisposable
     public uint Height { get; private set; }
 
     // the scene's composition swap chain goes behind the chrome, null takes it away when the scene presents to the window again.
-    public void SetScene(nint swapChain)
+    public void SetScene(IComObject<IDXGISwapChain3>? swapChain)
     {
         if (_sceneVisual != null)
         {
@@ -91,11 +91,11 @@ public sealed class ChromeLayer : IDisposable
         }
 
         _sceneSwapChain = swapChain;
-        if (swapChain != 0)
+        if (swapChain != null)
         {
             _composition.Object.CreateVisual(out var visual).ThrowOnError();
             _sceneVisual = new ComObject<IDCompositionVisual>(visual);
-            _sceneVisual.Object.SetContent(swapChain).ThrowOnError();
+            _sceneVisual.Object.SetContent(swapChain.ToComInstanceNoAddRef()).ThrowOnError();
             _root.Object.AddVisual(_sceneVisual.Object, false, _chromeVisual.Object).ThrowOnError();
         }
         _composition.Object.Commit().ThrowOnError();
@@ -121,7 +121,7 @@ public sealed class ChromeLayer : IDisposable
     public void RefreshContent()
     {
         _chromeVisual.Object.SetContent(_swapChain.ToComInstanceNoAddRef()).ThrowOnError();
-        _sceneVisual?.Object.SetContent(_sceneSwapChain).ThrowOnError();
+        _sceneVisual?.Object.SetContent(_sceneSwapChain.ToComInstanceNoAddRef()).ThrowOnError();
         _composition.Object.Commit().ThrowOnError();
     }
 

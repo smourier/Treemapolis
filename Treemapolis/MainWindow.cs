@@ -861,7 +861,7 @@ public sealed class MainWindow : Window
         if (composition != _swapChain.IsComposition || (composition && material != _appliedMaterial))
         {
             _device.WaitForIdle();
-            _chrome.SetScene(0);
+            _chrome.SetScene(null);
             _swapChain.Dispose();
             _swapChain = CreateSwapChain(composition);
         }
@@ -883,7 +883,7 @@ public sealed class MainWindow : Window
             _sceneWindow = null;
             var swapChain = new SwapChain(_device, _heaps.RenderTargets, Handle, _frameCount, _backBufferFormat, _backBufferRenderTargetFormat, true);
             swapChain.Resize((uint)client.Width, (uint)client.Height);
-            _chrome.SetScene(swapChain.ComObject.ToComInstanceNoAddRef());
+            _chrome.SetScene(swapChain);
             return swapChain;
         }
 

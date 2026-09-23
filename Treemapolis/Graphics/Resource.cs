@@ -10,11 +10,10 @@ public abstract class Resource : InterlockedComObject<ID3D12Resource>
         : base(resource)
     {
         State = state;
-        NativePointer = DirectN.Extensions.Com.ComObject.ToComInstanceOfTypeNoAddRef<ID3D12Resource>(resource.Object);
     }
 
-    // borrowed for barriers and copy locations, valid for as long as the resource lives.
-    public nint NativePointer { get; private set; }
+    // borrowed for the one D3D12 call that receives it, a copy kept past that call can outlive the resource.
+    public nint NativePointer => ComObject.ToComInstanceNoAddRef();
     public D3D12_RESOURCE_STATES State { get; internal set; }
     public ulong GpuVirtualAddress => NativeObject.GetGPUVirtualAddress();
 
@@ -22,7 +21,6 @@ public abstract class Resource : InterlockedComObject<ID3D12Resource>
     {
         ExchangeDisposable(resource);
         State = state;
-        NativePointer = DirectN.Extensions.Com.ComObject.ToComInstanceOfTypeNoAddRef<ID3D12Resource>(resource.Object);
     }
 
     // where a texture region lands in a buffer. the Windows 10 runtime refuses an offset that is not a multiple of 512

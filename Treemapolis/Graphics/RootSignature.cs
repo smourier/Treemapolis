@@ -8,8 +8,8 @@ public sealed class RootSignature : InterlockedComObject<ID3D12RootSignature>
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(shader);
         ExchangeDisposable(device.ComObject.CreateRootSignature(0, shader.Pointer, shader.Length));
-        NativePointer = DirectN.Extensions.Com.ComObject.ToComInstanceOfTypeNoAddRef<ID3D12RootSignature>(ComObject.Object);
     }
 
-    public nint NativePointer { get; }
+    // borrowed for the one D3D12 call that receives it, a copy kept past that call can outlive the root signature.
+    public nint NativePointer => ComObject.ToComInstanceNoAddRef();
 }
