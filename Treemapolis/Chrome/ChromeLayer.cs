@@ -13,11 +13,11 @@ public sealed class ChromeLayer : IDisposable
     private readonly IComObject<ID3D11DeviceContext> _deviceContext;
     private readonly IComObject<ID2D1Device> _d2dDevice;
     private readonly IComObject<IDCompositionDevice> _composition;
-    private readonly ComObject<IDCompositionTarget> _target;
-    private readonly ComObject<IDCompositionVisual> _root;
-    private readonly ComObject<IDCompositionVisual> _chromeVisual;
+    private readonly IComObject<IDCompositionTarget> _target;
+    private readonly IComObject<IDCompositionVisual> _root;
+    private readonly IComObject<IDCompositionVisual> _chromeVisual;
     private readonly IComObject<IDXGISwapChain1> _swapChain;
-    private ComObject<IDCompositionVisual>? _sceneVisual;
+    private IComObject<IDCompositionVisual>? _sceneVisual;
     private IComObject<IDXGISwapChain3>? _sceneSwapChain;
     private IComObject<ID2D1Bitmap1>? _targetBitmap;
 
@@ -60,19 +60,14 @@ public sealed class ChromeLayer : IDisposable
         _swapChain = factory.CreateSwapChainForComposition<IDXGISwapChain1>(dxgiDevice, desc);
         CreateTargetBitmap();
 
-        var iid = typeof(IDCompositionDevice).GUID;
-        Functions.DCompositionCreateDevice(dxgiDevice.As<IDXGIDevice>()!.Object, iid, out var unknown).ThrowOnError();
-        _composition = DirectN.Extensions.Com.ComObject.FromPointer<IDCompositionDevice>(unknown)!;
-        _composition.Object.CreateTargetForHwnd(hwnd, true, out var target).ThrowOnError();
-        _target = new ComObject<IDCompositionTarget>(target);
-        _composition.Object.CreateVisual(out var root).ThrowOnError();
-        _root = new ComObject<IDCompositionVisual>(root);
-        _composition.Object.CreateVisual(out var chrome).ThrowOnError();
-        _chromeVisual = new ComObject<IDCompositionVisual>(chrome);
-        _chromeVisual.Object.SetContent(_swapChain.ToComInstanceNoAddRef()).ThrowOnError();
-        _root.Object.AddVisual(_chromeVisual.Object, true, null).ThrowOnError();
-        _target.Object.SetRoot(_root.Object).ThrowOnError();
-        _composition.Object.Commit().ThrowOnError();
+        _composition = DCompositionFunctions.DCompositionCreateDevice(dxgiDevice);
+        _target = _composition.CreateTargetForHwnd(hwnd);
+        _root = _composition.CreateVisual();
+        _chromeVisual = _composition.CreateVisual();
+        _chromeVisual.SetContent(_swapChain);
+        _root.AddVisual(_chromeVisual);
+        _target.SetRoot(_root);
+        _composition.Commit();
     }
 
     public IComObject<ID2D1DeviceContext> DeviceContext { get; }
@@ -85,7 +80,7 @@ public sealed class ChromeLayer : IDisposable
     {
         if (_sceneVisual != null)
         {
-            _root.Object.RemoveVisual(_sceneVisual.Object).ThrowOnError();
+            _root.RemoveVisual(_sceneVisual);
             _sceneVisual.Dispose();
             _sceneVisual = null;
         }
@@ -93,12 +88,11 @@ public sealed class ChromeLayer : IDisposable
         _sceneSwapChain = swapChain;
         if (swapChain != null)
         {
-            _composition.Object.CreateVisual(out var visual).ThrowOnError();
-            _sceneVisual = new ComObject<IDCompositionVisual>(visual);
-            _sceneVisual.Object.SetContent(swapChain.ToComInstanceNoAddRef()).ThrowOnError();
-            _root.Object.AddVisual(_sceneVisual.Object, false, _chromeVisual.Object).ThrowOnError();
+            _sceneVisual = _composition.CreateVisual();
+            _sceneVisual.SetContent(swapChain);
+            _root.AddVisual(_sceneVisual, false, _chromeVisual);
         }
-        _composition.Object.Commit().ThrowOnError();
+        _composition.Commit();
     }
 
     public void Resize(uint width, uint height)
@@ -120,9 +114,9 @@ public sealed class ChromeLayer : IDisposable
     // a visual keeps showing the buffers its swap chain had when it was set, resized buffers are only seen once the content is set again.
     public void RefreshContent()
     {
-        _chromeVisual.Object.SetContent(_swapChain.ToComInstanceNoAddRef()).ThrowOnError();
-        _sceneVisual?.Object.SetContent(_sceneSwapChain.ToComInstanceNoAddRef()).ThrowOnError();
-        _composition.Object.Commit().ThrowOnError();
+        _chromeVisual.SetContent(_swapChain);
+        _sceneVisual?.SetContent(_sceneSwapChain);
+        _composition.Commit();
     }
 
     // draws a whole chrome frame on a transparent buffer and presents it, and when asked, reads it back first as premultiplied BGRA rows.

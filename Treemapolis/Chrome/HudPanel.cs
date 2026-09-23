@@ -32,7 +32,7 @@ public sealed class HudPanel(bool emphasized) : IDisposable
         if (layout == null)
             return default;
 
-        layout.Object.GetMetrics(out var metrics).ThrowOnError();
+        var metrics = layout.GetMetrics();
         var padding = _padding * resources.Scale;
         return new D2D_SIZE_F(MathF.Ceiling(metrics.widthIncludingTrailingWhitespace + 2 * padding), MathF.Ceiling(metrics.height + 2 * padding));
     }

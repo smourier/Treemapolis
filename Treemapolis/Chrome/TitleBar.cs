@@ -375,7 +375,7 @@ public sealed class TitleBar : Control
     private static float MeasureCaption(ChromeResources resources, string text)
     {
         using var layout = resources.Factory.CreateTextLayout(resources.CaptionFormat, text);
-        layout.Object.GetMetrics(out var metrics).ThrowOnError();
+        var metrics = layout.GetMetrics();
         return MathF.Ceiling(metrics.widthIncludingTrailingWhitespace);
     }
 
@@ -411,7 +411,7 @@ public sealed class TitleBar : Control
             return _statusWidth;
 
         using var layout = resources.Factory.CreateTextLayout(resources.CaptionFormat, Status);
-        layout.Object.GetMetrics(out var metrics).ThrowOnError();
+        var metrics = layout.GetMetrics();
         _measuredStatus = Status;
         _measuredResources = resources;
         _statusWidth = MathF.Ceiling(metrics.widthIncludingTrailingWhitespace);

@@ -123,7 +123,7 @@ public sealed class LoadingPanel : IDisposable
 
     private static D2D_SIZE_F Measure(IComObject<IDWriteTextLayout> layout)
     {
-        layout.Object.GetMetrics(out var metrics).ThrowOnError();
+        var metrics = layout.GetMetrics();
         return new D2D_SIZE_F(MathF.Ceiling(metrics.widthIncludingTrailingWhitespace), MathF.Ceiling(metrics.height));
     }
 

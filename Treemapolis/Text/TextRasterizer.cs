@@ -40,7 +40,7 @@ public sealed class TextRasterizer : IDisposable
             return false;
 
         using var layout = _dwrite.CreateTextLayout(GetFormat(style), text, 0, MaxWidth - 2 * _padding, MaxHeight - 2 * _padding);
-        layout.Object.GetMetrics(out var metrics).ThrowOnError();
+        var metrics = layout.GetMetrics();
         width = (int)MathF.Ceiling(metrics.widthIncludingTrailingWhitespace + 2 * _padding);
         height = (int)MathF.Ceiling(metrics.height + 2 * _padding);
         if (width > MaxWidth || height > MaxHeight || width * height > destination.Length)

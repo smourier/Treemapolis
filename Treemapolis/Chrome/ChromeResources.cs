@@ -39,11 +39,11 @@ public sealed class ChromeResources : IDisposable
         PanelFormat = factory.CreateTextFormat(_fontFamily, MathF.Round(_panelFontSize * scale));
 
         using var sample = factory.CreateTextLayout(CaptionFormat, _widthSample);
-        sample.Object.GetMetrics(out var metrics).ThrowOnError();
+        var metrics = sample.GetMetrics();
         CaptionCharacterWidth = MathF.Max(1, metrics.width / _widthSample.Length);
 
         using var name = factory.CreateTextLayout(AppNameFormat, Res.WindowTitle);
-        name.Object.GetMetrics(out var nameMetrics).ThrowOnError();
+        var nameMetrics = name.GetMetrics();
         AppNameWidth = MathF.Ceiling(nameMetrics.widthIncludingTrailingWhitespace);
         AppIcon = CreateAppIcon(context, (int)MathF.Round(AppIconSize * scale));
 

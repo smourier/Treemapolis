@@ -419,7 +419,7 @@ public sealed class FolderPicker : Control
         }
 
         var position = Math.Min(_caret, Filter.Length);
-        _filterLayout.Object.HitTestTextPosition((uint)Math.Min(position, Filter.Length - 1), position >= Filter.Length, out var x, out _, out _).ThrowOnError();
+        _filterLayout.HitTestTextPosition((uint)Math.Min(position, Filter.Length - 1), position >= Filter.Length, out var x, out _);
         return x;
     }
 
