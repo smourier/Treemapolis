@@ -61,6 +61,13 @@ public sealed class NamespaceExplorer : IDisposable
             var rootPath = tree.GetFileSystemPath(session.Root);
             if (rootPath != null)
             {
+                // a link is never walked into, the root that was asked for included, what it points at is scanned where it really is.
+                if (IsLink(tree, session.Root, rootPath))
+                {
+                    tree.AddFlags(session.Root, EntryFlags.Enumerated);
+                    return;
+                }
+
                 session.RecursiveRoots[session.Root] = 0;
                 watcher.WatchFolder(session.Root, rootPath);
                 if (!TryScanMasterFileTable(session, session.Root, rootPath))
@@ -149,6 +156,9 @@ public sealed class NamespaceExplorer : IDisposable
         var path = tree.GetFileSystemPath(index);
         if (path != null)
         {
+            if (IsLink(tree, index, path))
+                return;
+
             if (ClaimSubtree(session, index, path))
             {
                 Track(session, () => ScanSubtreeAsync(session, index, path));
@@ -164,6 +174,24 @@ public sealed class NamespaceExplorer : IDisposable
             new ShellScanner(tree).Enumerate(index);
             return Task.CompletedTask;
         });
+    }
+
+    // a junction or a symbolic link, the folders a walk already refuses to follow. a OneDrive folder is a reparse point too,
+    // and holds the files themselves, so the flag the attributes give is only what says a link is worth looking for.
+    private static bool IsLink(NamespaceTree tree, int index, string path)
+    {
+        if ((tree[index].Flags & EntryFlags.ReparsePoint) == 0)
+            return false;
+
+        try
+        {
+            return new DirectoryInfo(path).LinkTarget != null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Application.TraceVerbose($"'{path}' could not be read: {ex.Message}");
+            return false;
+        }
     }
 
     // a subtree already on its way down is not scanned twice, the second scan would append every entry again.
@@ -249,7 +277,7 @@ public sealed class NamespaceExplorer : IDisposable
 
     private void ScanAddedFolder(Session session, int index, string path)
     {
-        if (session.Token.IsCancellationRequested)
+        if (session.Token.IsCancellationRequested || IsLink(session.Tree, index, path))
             return;
 
         Track(session, () => new FileSystemScanner(session.Tree).ScanAsync([new DirectoryWork(index, path)], true, WorkerCount, session.Token));

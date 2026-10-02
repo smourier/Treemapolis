@@ -126,14 +126,24 @@ public sealed class ShellScanner(NamespaceTree tree)
         var isStream = attributes.HasFlag(SFGAO_FLAGS.SFGAO_STREAM);
         var isContainer = attributes.HasFlag(SFGAO_FLAGS.SFGAO_FOLDER) && !isStream;
         string? fileSystemPath = null;
+        var isLink = false;
 
         // the desktop answers with the user's Desktop directory, which is only one part of what it holds.
         if (attributes.HasFlag(SFGAO_FLAGS.SFGAO_FILESYSTEM) && item is not ShellFolder { IsDesktop: true })
         {
             fileSystemPath = item.GetDisplayName(SIGDN.SIGDN_FILESYSPATH, false);
-            if (isContainer && fileSystemPath != null && !Directory.Exists(fileSystemPath))
+            if (isContainer && fileSystemPath != null)
             {
-                fileSystemPath = null;
+                // the shell tells a junction from a folder nowhere in its attributes, only the disk does.
+                var directory = new DirectoryInfo(fileSystemPath);
+                if (!directory.Exists)
+                {
+                    fileSystemPath = null;
+                }
+                else
+                {
+                    isLink = directory.LinkTarget != null;
+                }
             }
         }
 
@@ -141,6 +151,11 @@ public sealed class ShellScanner(NamespaceTree tree)
         if (attributes.HasFlag(SFGAO_FLAGS.SFGAO_HIDDEN))
         {
             flags |= EntryFlags.Hidden;
+        }
+
+        if (isLink)
+        {
+            flags |= EntryFlags.ReparsePoint;
         }
 
         var driveType = DriveType.Unknown;
